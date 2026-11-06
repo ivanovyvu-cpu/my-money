@@ -84,10 +84,12 @@ button {
   cursor: pointer;
 }
 
-.pb-safe {
+/* Отступы под вырез и полоску iPhone. Объявлены как утилиты Tailwind,
+   чтобы правильно сочетаться с другими классами отступов. */
+@utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
-.pt-safe {
+@utility pt-safe {
   padding-top: env(safe-area-inset-top);
 }
 

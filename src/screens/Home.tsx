@@ -12,7 +12,7 @@ import {
 } from '../hooks/useData';
 import { categoryStats, inRange, jarBalance, monthlyLimit } from '../lib/calc';
 import { monthName, monthRange, toISO, today } from '../lib/dates';
-import { money, sum } from '../lib/format';
+import { money, plural, sum } from '../lib/format';
 import { Page } from '../components/layout';
 import { DeviationsSheet } from '../components/DeviationsSheet';
 
@@ -55,13 +55,13 @@ export function Home() {
   const devTotal = sum(deviations, (d) => d.amount);
   const expiredCount = categories.filter((c) => categoryStats(c, expenses, settings.monthStartDay).expired).length;
 
+  const incomeCount = incomes.filter((i) => inRange(i.date, month)).length;
+
   return (
     <Page>
-      <header className="pt-safe flex items-center justify-between pb-2 pt-5">
-        <div>
-          <div className="text-sm text-muted">{monthName(month.start)}</div>
-          <h1 className="text-2xl font-bold">Финансовый аналитик</h1>
-        </div>
+      <header className="pb-3 pt-[calc(env(safe-area-inset-top)+20px)]">
+        <div className="text-sm font-medium text-muted">{monthName(month.start)}</div>
+        <h1 className="text-2xl font-bold">Финансовый аналитик</h1>
       </header>
 
       <section className="rounded-[20px] bg-card p-4 shadow-soft">
@@ -78,9 +78,25 @@ export function Home() {
             />
           </div>
         )}
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <Stat label="Больше всего" value={top ? `${top.icon} ${money(top.amount)}` : '—'} hint={top?.name} />
-          <Stat label="Свободно к распределению" value={money(free)} tone={free < 0 ? 'over' : undefined} hint="доходы − лимиты − взносы" />
+        <div className="mt-2 truncate text-sm text-muted">
+          Больше всего:{' '}
+          {top ? (
+            <span className="text-text">
+              {top.icon} {top.name} · {money(top.amount)}
+            </span>
+          ) : (
+            '—'
+          )}
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <Stat
+            label="Доходы за месяц"
+            value={money(incomeMonth)}
+            tone="ok"
+            hint={incomeCount ? `${incomeCount} ${plural(incomeCount, ['поступление', 'поступления', 'поступлений'])}` : 'добавить ›'}
+            onClick={() => navigate('/income')}
+          />
+          <Stat label="Свободно" value={money(free)} tone={free < 0 ? 'over' : undefined} hint="доходы − лимиты − взносы" />
           <Stat label="Сэкономлено" value={money(saved)} hint="закрыто в этом месяце" tone="ok" />
           <Stat label="Всего в копилках" value={money(totalSaved)} tone="save" />
         </div>
@@ -90,7 +106,7 @@ export function Home() {
         <button
           type="button"
           onClick={() => setDevOpen(true)}
-          className="animate-pop-in mt-3 flex min-h-12 w-full items-center justify-between rounded-2xl bg-over-soft px-4 py-3 text-left font-semibold text-over"
+          className="animate-pop-in mt-3 flex min-h-12 w-full items-center justify-between rounded-2xl bg-over-soft px-4 py-2.5 text-left font-semibold text-over"
         >
           <span>⚠️ Отклонения: {money(devTotal)}</span>
           <span className="text-xl">›</span>
@@ -101,27 +117,27 @@ export function Home() {
         <button
           type="button"
           onClick={() => navigate('/spend')}
-          className="mt-3 flex min-h-12 w-full items-center justify-between rounded-2xl bg-warn/15 px-4 py-3 text-left font-medium"
+          className="mt-3 flex min-h-12 w-full items-center justify-between rounded-2xl bg-warn/15 px-4 py-2.5 text-left font-medium"
         >
           <span>⏰ Есть незакрытые периоды: {expiredCount}</span>
           <span className="text-xl">›</span>
         </button>
       )}
 
-      <div className="mt-6 flex flex-col items-center gap-5">
-        <BigCircle
+      <div className="mt-3 flex flex-col gap-3">
+        <BigTile
           onClick={() => navigate('/spend')}
           icon="👛"
           title="Потратить"
           subtitle={limitsMonth > 0 ? `осталось ${money(Math.max(0, limitsMonth - spentMonth))}` : 'статьи расходов'}
-          className="bg-spend shadow-[0_12px_32px_rgb(242_107_74/0.35)]"
+          className="bg-spend shadow-[0_8px_24px_rgb(242_107_74/0.3)]"
         />
-        <BigCircle
+        <BigTile
           onClick={() => navigate('/save')}
           icon="🐷"
           title="Накопить"
           subtitle={`накоплено ${money(totalSaved)}`}
-          className="bg-save shadow-[0_12px_32px_rgb(18_165_148/0.35)]"
+          className="bg-save shadow-[0_8px_24px_rgb(18_165_148/0.3)]"
         />
       </div>
 
@@ -130,18 +146,39 @@ export function Home() {
   );
 }
 
-function Stat({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: 'ok' | 'over' | 'save' }) {
+function Stat({
+  label,
+  value,
+  hint,
+  tone,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: 'ok' | 'over' | 'save';
+  onClick?: () => void;
+}) {
   const color = tone === 'over' ? 'text-over' : tone === 'ok' ? 'text-ok' : tone === 'save' ? 'text-save' : '';
-  return (
-    <div className="rounded-2xl bg-card-2 p-3">
-      <div className="text-xs leading-tight text-muted">{label}</div>
-      <div className={`mt-1 truncate text-lg font-bold ${color}`}>{value}</div>
+  const body = (
+    <>
+      <div className="truncate text-xs leading-tight text-muted">{label}</div>
+      <div className={`mt-0.5 truncate text-lg font-bold ${color}`}>{value}</div>
       {hint && <div className="truncate text-xs text-muted">{hint}</div>}
-    </div>
+    </>
+  );
+  const cls = 'block w-full rounded-2xl bg-card-2 px-3 py-2 text-left';
+  return onClick ? (
+    <button type="button" onClick={onClick} className={`${cls} transition-transform duration-150 active:scale-[0.98]`}>
+      {body}
+    </button>
+  ) : (
+    <div className={cls}>{body}</div>
   );
 }
 
-function BigCircle({
+/** Большая плашка-раздел на главном экране. */
+function BigTile({
   onClick,
   icon,
   title,
@@ -158,11 +195,13 @@ function BigCircle({
     <button
       type="button"
       onClick={onClick}
-      className={`flex aspect-square w-[min(64vw,260px)] flex-col items-center justify-center rounded-full text-white transition-transform duration-200 active:scale-95 ${className}`}
+      className={`flex min-h-[84px] w-full items-center gap-4 rounded-[20px] px-4 py-3 pr-20 text-left text-white transition-transform duration-200 active:scale-[0.98] ${className}`}
     >
-      <span className="text-6xl drop-shadow-sm">{icon}</span>
-      <span className="mt-2 text-2xl font-bold">{title}</span>
-      <span className="mt-1 max-w-[80%] text-sm text-white/85">{subtitle}</span>
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/20 text-3xl">{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-2xl font-bold">{title}</span>
+        <span className="block truncate text-sm text-white/90">{subtitle}</span>
+      </span>
     </button>
   );
 }

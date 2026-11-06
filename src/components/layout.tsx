@@ -14,7 +14,7 @@ export function ScreenHeader({
   accent?: 'spend' | 'save';
 }) {
   return (
-    <header className="pt-safe sticky top-0 z-30 bg-bg/90 backdrop-blur">
+    <header className="sticky top-0 z-30 bg-bg/90 pt-[calc(env(safe-area-inset-top)+8px)] backdrop-blur">
       <div className="mx-auto flex min-h-14 max-w-[480px] items-center gap-1 px-2">
         {back !== undefined ? (
           <button

@@ -59,7 +59,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
         </div>
       </Sheet>
       {createPortal(
-        <div className="pointer-events-none fixed inset-x-0 top-0 z-[70] flex flex-col items-center gap-2 p-4 pt-safe">
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-[70] flex flex-col items-center gap-2 px-4 pt-[calc(env(safe-area-inset-top)+8px)]">
           {toasts.map((t) => (
             <div key={t.id} className="animate-pop-in mt-2 rounded-2xl bg-text px-4 py-3 text-sm font-medium text-bg shadow-soft">
               {t.text}
