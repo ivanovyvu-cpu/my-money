@@ -1,7 +1,7 @@
 import { db, uid } from './db';
 import type { Category, ClosedPeriod, Deviation, Expense, Income, Jar, JarOperation } from './types';
 import { getSettings } from './actions';
-import { addDays, daysBetweenInclusive, periodRange, today } from '../lib/dates';
+import { addDays, daysBetweenInclusive, fromISO, periodRange, today } from '../lib/dates';
 import { round2 } from '../lib/format';
 
 // Демонстрационные данные за последние 6 месяцев. Заменяют все текущие данные.
@@ -82,7 +82,7 @@ export async function fillDemoData() {
       const lastDay = isCurrent ? t : m.end;
       const days = daysBetweenInclusive(m.start, lastDay);
       const share = isCurrent ? c.current : c.usage * (0.85 + rand() * 0.3);
-      const total = round2(c.limit * share);
+      const total = Math.round(c.limit * share);
       const n = Math.max(1, Math.round(c.count * (isCurrent ? days / 30 : 1)));
       let spent = 0;
       for (let k = 0; k < n; k++) {
@@ -110,7 +110,8 @@ export async function fillDemoData() {
         spent,
         difference,
         resolution: 'none',
-        createdAt: Date.now(),
+        // Период закрыт на следующий день после окончания.
+        createdAt: Math.min(Date.now(), fromISO(addDays(m.end, 1)).getTime() + 10 * 3600_000),
       };
       if (difference > 0) {
         rec.resolution = 'to_jar';

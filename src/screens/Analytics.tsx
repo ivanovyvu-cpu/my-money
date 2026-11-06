@@ -128,13 +128,13 @@ export function Analytics() {
           <p className="text-sm text-muted">последние 6 месяцев</p>
           <div className="mt-3 h-52">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData} margin={{ top: 8, right: 4, left: -8, bottom: 0 }}>
+              <BarChart data={barData} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
                 <CartesianGrid vertical={false} stroke={col.line} />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: col.muted, fontSize: 12 }} />
                 <YAxis
                   tickLine={false}
                   axisLine={false}
-                  width={44}
+                  width={56}
                   tick={{ fill: col.muted, fontSize: 11 }}
                   tickFormatter={(v: number) => compact.format(v)}
                 />

@@ -108,12 +108,12 @@ export function CategoryDetail({ id }: { id: string }) {
           {st.expired && <div className="mt-3 rounded-xl bg-warn/15 px-3 py-2 text-sm font-medium">⏰ Период завершён — пора закрыть</div>}
         </section>
 
-        <div className="mt-4 flex gap-2">
-          <Button variant="spend" className="flex-[2]" onClick={() => setExpenseSheet({ open: true })}>
+        <div className="mt-4 flex flex-col gap-2">
+          <Button variant="spend" block onClick={() => setExpenseSheet({ open: true })}>
             + Добавить операцию
           </Button>
-          <Button variant={st.expired ? 'primary' : 'soft'} className="flex-1 text-sm" onClick={() => setCloseQueue([cat.id])}>
-            Закрыть период
+          <Button variant={st.expired ? 'primary' : 'soft'} block onClick={() => setCloseQueue([cat.id])}>
+            {st.expired ? 'Закрыть текущий период' : 'Закрыть период досрочно'}
           </Button>
         </div>
 

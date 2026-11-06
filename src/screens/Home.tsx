@@ -11,7 +11,7 @@ import {
   useSettings,
 } from '../hooks/useData';
 import { categoryStats, inRange, jarBalance, monthlyLimit } from '../lib/calc';
-import { monthName, monthRange, today } from '../lib/dates';
+import { monthName, monthRange, toISO, today } from '../lib/dates';
 import { money, sum } from '../lib/format';
 import { Page } from '../components/layout';
 import { DeviationsSheet } from '../components/DeviationsSheet';
@@ -39,7 +39,11 @@ export function Home() {
     if (a > 0 && (!top || a > top.amount)) top = { name: c.name, icon: c.icon, amount: a };
   }
 
-  const saved = sum(closed.filter((p) => p.difference > 0 && inRange(p.end, month)), (p) => p.difference);
+  // «Сэкономлено» — излишки по периодам, закрытым в этом месяце (по дате закрытия).
+  const saved = sum(
+    closed.filter((p) => p.difference > 0 && inRange(toISO(new Date(p.createdAt)), month)),
+    (p) => p.difference,
+  );
   const totalSaved = sum(jars, (j) => jarBalance(j.id, jarOps));
   const incomeMonth = sum(incomes.filter((i) => inRange(i.date, month)), (i) => i.amount);
   // Взносы «вручную»: излишки по статьям не считаем — эти деньги уже учтены в лимитах.
@@ -77,7 +81,7 @@ export function Home() {
         <div className="mt-4 grid grid-cols-2 gap-3">
           <Stat label="Больше всего" value={top ? `${top.icon} ${money(top.amount)}` : '—'} hint={top?.name} />
           <Stat label="Свободно к распределению" value={money(free)} tone={free < 0 ? 'over' : undefined} hint="доходы − лимиты − взносы" />
-          <Stat label="Сэкономлено" value={money(saved)} hint="по закрытым периодам" tone="ok" />
+          <Stat label="Сэкономлено" value={money(saved)} hint="закрыто в этом месяце" tone="ok" />
           <Stat label="Всего в копилках" value={money(totalSaved)} tone="save" />
         </div>
       </section>
@@ -154,7 +158,7 @@ function BigCircle({
     <button
       type="button"
       onClick={onClick}
-      className={`flex aspect-square w-[min(68vw,280px)] flex-col items-center justify-center rounded-full text-white transition-transform duration-200 active:scale-95 ${className}`}
+      className={`flex aspect-square w-[min(64vw,260px)] flex-col items-center justify-center rounded-full text-white transition-transform duration-200 active:scale-95 ${className}`}
     >
       <span className="text-6xl drop-shadow-sm">{icon}</span>
       <span className="mt-2 text-2xl font-bold">{title}</span>
