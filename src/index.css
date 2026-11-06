@@ -1,0 +1,133 @@
+@import 'tailwindcss';
+
+/* Тёмная тема включается классом .dark на <html> */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg: #f6f5f2;
+  --card: #ffffff;
+  --card-2: #f0eeea;
+  --text: #1d1b19;
+  --muted: #77716a;
+  --line: #e7e3dd;
+  --spend: #f26b4a;
+  --spend-soft: #fdebe5;
+  --save: #12a594;
+  --save-soft: #def5f1;
+  --ok: #22a06b;
+  --warn: #e6a700;
+  --over: #e5484d;
+  --over-soft: #fde8e8;
+  --shadow: 0 1px 2px rgb(30 20 10 / 0.04), 0 4px 16px rgb(30 20 10 / 0.06);
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
+  --series-5: #e87ba4; --series-6: #008300; --series-7: #6250d6; --series-8: #e34948;
+  --series-other: #a8a49c;
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #121212;
+  --card: #1d1d1f;
+  --card-2: #2a2a2d;
+  --text: #f2f0ed;
+  --muted: #a19c95;
+  --line: #2f2f33;
+  --spend: #ff7f5f;
+  --spend-soft: #3a231c;
+  --save: #2cc6b2;
+  --save-soft: #13312d;
+  --ok: #3ccf8e;
+  --warn: #ffc53d;
+  --over: #ff6369;
+  --over-soft: #3b1a1c;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
+  --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+  --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767;
+  --series-other: #6b6862;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-card-2: var(--card-2);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-spend: var(--spend);
+  --color-spend-soft: var(--spend-soft);
+  --color-save: var(--save);
+  --color-save-soft: var(--save-soft);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-over: var(--over);
+  --color-over-soft: var(--over-soft);
+  --shadow-soft: var(--shadow);
+  --radius-card: 16px;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+button {
+  cursor: pointer;
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes confetti-fall {
+  0% { transform: translate3d(0, -10vh, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate3d(var(--dx), 105vh, 0) rotate(var(--rot)); opacity: 0.9; }
+}
+
+.animate-fade-in { animation: fade-in 200ms ease-out both; }
+.animate-slide-up { animation: slide-up 240ms cubic-bezier(0.2, 0.9, 0.3, 1) both; }
+.animate-pop-in { animation: pop-in 220ms ease-out both; }
+
+/* Плавное раскрытие формы «Добавить статью / копилку» */
+.expand {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 240ms ease;
+}
+.expand.open {
+  grid-template-rows: 1fr;
+}
+.expand > div {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
