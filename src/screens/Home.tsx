@@ -11,11 +11,12 @@ import {
   useSettings,
 } from '../hooks/useData';
 import { categoryStats, inRange, jarBalance, monthlyLimit } from '../lib/calc';
-import { monthName, monthRange, toISO, today } from '../lib/dates';
+import { HOME_RANGE_OPTIONS, homeView, toISO } from '../lib/dates';
 import { money, plural, sum } from '../lib/format';
 import { Page } from '../components/layout';
 import { DeviationsSheet } from '../components/DeviationsSheet';
-import { deviationLeft } from '../db/actions';
+import { deviationLeft, updateSettings } from '../db/actions';
+import { Sheet } from '../components/ui/Sheet';
 
 export function Home() {
   const settings = useSettings();
@@ -27,12 +28,18 @@ export function Home() {
   const closed = useClosedPeriods();
   const deviations = useDeviations();
   const [devOpen, setDevOpen] = useState(false);
+  const [rangeOpen, setRangeOpen] = useState(false);
 
-  const month = monthRange(today(), settings.monthStartDay);
+  // Выбранный период сводки (месяц / 3 / 6 месяцев / год). Дальше «month» — это весь выбранный диапазон.
+  const rangeKind = settings.homeRange ?? 'month';
+  const view = homeView(rangeKind, settings.monthStartDay);
+  const month = view.range;
   const catIds = new Set(categories.map((c) => c.id));
   const monthExpenses = expenses.filter((e) => inRange(e.date, month) && catIds.has(e.categoryId));
   const spentMonth = sum(monthExpenses, (e) => e.amount);
-  const limitsMonth = sum(categories, (c) => monthlyLimit(c.limit, c.period));
+  const limitsMonth = view.months * sum(categories, (c) => monthlyLimit(c.limit, c.period));
+  // Остаток по текущим периодам статей — не зависит от выбранного диапазона.
+  const leftNow = sum(categories, (c) => categoryStats(c, expenses, settings.monthStartDay).remaining);
 
   let top: { name: string; icon: string; amount: number } | null = null;
   for (const c of categories) {
@@ -65,13 +72,24 @@ export function Home() {
 
   return (
     <Page>
-      <header className="pb-3 pt-[calc(env(safe-area-inset-top)+20px)]">
-        <div className="text-sm font-medium text-muted">{monthName(month.start)}</div>
+      <header className="pb-3 pt-[calc(env(safe-area-inset-top)+12px)]">
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1 truncate text-sm font-medium text-muted">{view.title}</div>
+          <button
+            type="button"
+            onClick={() => setRangeOpen(true)}
+            aria-label="Выбрать период сводки"
+            className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-card px-3.5 text-sm font-semibold shadow-soft transition-transform duration-150 active:scale-95"
+          >
+            📅 {HOME_RANGE_OPTIONS.find((o) => o.value === rangeKind)?.label.replace('Текущий месяц', 'Месяц')}
+            <span className="text-muted">▾</span>
+          </button>
+        </div>
         <h1 className="text-2xl font-bold">Финансовый аналитик</h1>
       </header>
 
       <section className="rounded-[20px] bg-card p-4 shadow-soft">
-        <div className="text-sm text-muted">Потрачено за месяц</div>
+        <div className="text-sm text-muted">Потрачено {view.short}</div>
         <div className="mt-0.5 flex items-baseline gap-2">
           <span className="text-3xl font-bold">{money(spentMonth)}</span>
           <span className="text-muted">из {money(limitsMonth)}</span>
@@ -96,14 +114,14 @@ export function Home() {
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Stat
-            label="Доходы за месяц"
+            label={`Доходы ${view.short}`}
             value={money(incomeMonth)}
             tone="ok"
             hint={incomeCount ? `${incomeCount} ${plural(incomeCount, ['поступление', 'поступления', 'поступлений'])}` : 'добавить ›'}
             onClick={() => navigate('/income')}
           />
           <Stat label="Свободно" value={money(free)} tone={free < 0 ? 'over' : undefined} hint="доходы − лимиты − взносы − погашения" />
-          <Stat label="Сэкономлено" value={money(saved)} hint="закрыто в этом месяце" tone="ok" />
+          <Stat label="Сэкономлено" value={money(saved)} hint={rangeKind === 'month' ? 'закрыто в этом месяце' : `закрыто ${view.short}`} tone="ok" />
           <Stat label="Всего в копилках" value={money(totalSaved)} tone="save" />
         </div>
       </section>
@@ -135,7 +153,7 @@ export function Home() {
           onClick={() => navigate('/spend')}
           icon="👛"
           title="Потратить"
-          subtitle={limitsMonth > 0 ? `осталось ${money(Math.max(0, limitsMonth - spentMonth))}` : 'статьи расходов'}
+          subtitle={limitsMonth > 0 ? `осталось ${money(Math.max(0, leftNow))}` : 'статьи расходов'}
           className="bg-spend shadow-[0_8px_24px_rgb(242_107_74/0.3)]"
         />
         <BigTile
@@ -148,6 +166,37 @@ export function Home() {
       </div>
 
       <DeviationsSheet open={devOpen} onClose={() => setDevOpen(false)} />
+
+      <Sheet open={rangeOpen} onClose={() => setRangeOpen(false)} title="Период сводки">
+        <div className="flex flex-col gap-2">
+          {HOME_RANGE_OPTIONS.map((o) => {
+            const active = o.value === rangeKind;
+            return (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => {
+                  updateSettings({ homeRange: o.value });
+                  setRangeOpen(false);
+                }}
+                className={`flex min-h-14 items-center gap-3 rounded-2xl border-2 px-4 text-left transition-colors duration-150 ${
+                  active ? 'border-text bg-card-2' : 'border-transparent bg-card-2'
+                }`}
+              >
+                <span className="flex-1">
+                  <span className="block font-semibold">{o.label}</span>
+                  <span className="block text-sm text-muted">{o.hint}</span>
+                </span>
+                {active && <span className="text-xl">✓</span>}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-3 text-xs text-muted">
+          Лимиты за несколько месяцев считаются как месячный лимит × число месяцев. «Всего в копилках» показывает общую
+          сумму за всё время.
+        </p>
+      </Sheet>
     </Page>
   );
 }

@@ -107,3 +107,47 @@ export function monthsUntil(target: string): number {
   const days = daysBetweenInclusive(today(), target);
   return Math.max(1, Math.ceil(days / 30.44));
 }
+
+export type HomeRangeKind = 'month' | '3m' | '6m' | 'year';
+
+export const HOME_RANGE_OPTIONS: Array<{ value: HomeRangeKind; label: string; hint: string }> = [
+  { value: 'month', label: 'Текущий месяц', hint: 'с начала месяца' },
+  { value: '3m', label: '3 месяца', hint: 'текущий и 2 предыдущих' },
+  { value: '6m', label: '6 месяцев', hint: 'текущий и 5 предыдущих' },
+  { value: 'year', label: 'Этот год', hint: 'с начала календарного года' },
+];
+
+export interface HomeView {
+  range: DateRange;
+  /** Сколько месяцев входит (для пересчёта месячных лимитов). */
+  months: number;
+  /** Подпись периода над заголовком: «Ноябрь 2026», «Сен — Ноя 2026». */
+  title: string;
+  /** Для фраз: «за месяц», «за 3 месяца», «за год». */
+  short: string;
+}
+
+/** Диапазон для сводки на главном экране: всегда заканчивается концом текущего месяца. */
+export function homeView(kind: HomeRangeKind, monthStartDay: number, date = today()): HomeView {
+  const cur = monthRange(date, monthStartDay);
+  let start = cur.start;
+  let months = 1;
+  if (kind === '3m' || kind === '6m') {
+    const back = kind === '3m' ? 2 : 5;
+    for (let i = 0; i < back; i++) start = monthRange(addDays(start, -1), monthStartDay).start;
+    months = back + 1;
+  } else if (kind === 'year') {
+    start = periodRange(date, 'year', monthStartDay).start;
+    months = 1;
+    for (let s = cur.start; s > start; s = monthRange(addDays(s, -1), monthStartDay).start) months++;
+  }
+  const range = { start, end: cur.end };
+  const title =
+    kind === 'month'
+      ? monthName(cur.start)
+      : kind === 'year'
+        ? `${fromISO(cur.start).getFullYear()} год · ${months} ${months === 1 ? 'месяц' : months < 5 ? 'месяца' : 'месяцев'}`
+        : `${MONTHS_NOM_SHORT[fromISO(start).getMonth()]} — ${MONTHS_NOM_SHORT[fromISO(cur.start).getMonth()]} ${fromISO(cur.start).getFullYear()}`;
+  const short = kind === 'month' ? 'за месяц' : kind === 'year' ? 'за год' : `за ${months} месяц${months < 5 ? 'а' : 'ев'}`;
+  return { range, months, title: title.charAt(0).toUpperCase() + title.slice(1), short };
+}

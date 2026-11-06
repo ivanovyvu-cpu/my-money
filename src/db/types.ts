@@ -114,7 +114,11 @@ export interface AppSettings {
   monthStartDay: number;
   /** Стартовые статьи и копилки уже созданы. */
   seeded: boolean;
+  /** Период сводки на главном экране. */
+  homeRange?: HomeRange;
 }
+
+export type HomeRange = 'month' | '3m' | '6m' | 'year';
 
 export const PERIOD_LABELS: Record<Period, string> = {
   week: 'неделя',
