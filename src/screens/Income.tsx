@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Income as IncomeT } from '../db/types';
-import { addIncome, deleteIncome, updateIncome } from '../db/actions';
-import { useIncomes, useSettings } from '../hooks/useData';
+import { addIncomeAndRepay, deleteIncome, deviationLeft, updateIncome } from '../db/actions';
+import { useDeviations, useIncomes, useSettings } from '../hooks/useData';
 import { inRange } from '../lib/calc';
 import { addDays, formatDate, monthName, monthRange, today } from '../lib/dates';
 import { amountToInput, money, parseAmount, sum } from '../lib/format';
@@ -65,7 +65,14 @@ export function Income() {
                 aria-label="Удалить"
                 className="flex h-11 w-11 items-center justify-center rounded-full text-muted hover:bg-card-2"
                 onClick={async () => {
-                  if (await confirm({ title: 'Удалить поступление?', message: `${i.title} · ${money(i.amount)}`, confirmText: 'Удалить', danger: true })) {
+                  if (
+                    await confirm({
+                      title: 'Удалить поступление?',
+                      message: `${i.title} · ${money(i.amount)}. Если из него гасили перерасход, погашение тоже отменится.`,
+                      confirmText: 'Удалить',
+                      danger: true,
+                    })
+                  ) {
                     await deleteIncome(i.id);
                     toast('Удалено');
                   }
@@ -90,19 +97,32 @@ function IncomeForm({ income, onDone }: { income?: IncomeT | null; onDone: () =>
   const [title, setTitle] = useState(income?.title ?? '');
   const [amount, setAmount] = useState(income ? amountToInput(income.amount) : '');
   const [date, setDate] = useState(income?.date ?? today());
-  const [errors, setErrors] = useState<{ title?: string; amount?: string }>({});
+  const [errors, setErrors] = useState<{ title?: string; amount?: string; repay?: string }>({});
+  // Погашение перерасхода из нового поступления
+  const debt = sum(useDeviations(), deviationLeft);
+  const [repayOn, setRepayOn] = useState(false);
+  const [repayStr, setRepayStr] = useState('');
+  const parsed = parseAmount(amount);
+  const autoRepay = Number.isNaN(parsed) ? debt : Math.min(parsed, debt);
 
   async function submit() {
     const a = parseAmount(amount);
     const e: typeof errors = {};
     if (!title.trim()) e.title = 'Введите название, например «Зарплата»';
     if (Number.isNaN(a) || a <= 0) e.amount = 'Введите сумму больше нуля';
+    let repay = 0;
+    if (!income && repayOn) {
+      repay = repayStr.trim() === '' ? autoRepay : parseAmount(repayStr);
+      if (Number.isNaN(repay) || repay <= 0) e.repay = 'Введите сумму погашения';
+      else if (repay > debt) e.repay = `Перерасхода всего ${money(debt)}`;
+      else if (!Number.isNaN(a) && repay > a) e.repay = 'Нельзя погасить больше, чем поступило';
+    }
     setErrors(e);
     if (Object.keys(e).length) return;
     const data = { title: title.trim(), amount: a, date: date || today() };
     if (income) await updateIncome(income.id, data);
-    else await addIncome(data);
-    toast(income ? 'Сохранено' : `Добавлено ${money(a)}`);
+    else await addIncomeAndRepay(data, repay);
+    toast(income ? 'Сохранено' : repay > 0 ? `Добавлено ${money(a)}, погашено ${money(repay)}` : `Добавлено ${money(a)}`);
     onDone();
   }
 
@@ -124,6 +144,35 @@ function IncomeForm({ income, onDone }: { income?: IncomeT | null; onDone: () =>
       <Field label="Дата">
         <DateInput value={date} onChange={(e) => setDate(e.target.value)} />
       </Field>
+      {!income && debt > 0 && (
+        <div className="mb-4 rounded-2xl bg-over-soft p-3">
+          <button
+            type="button"
+            onClick={() => setRepayOn(!repayOn)}
+            className="flex min-h-11 w-full items-center gap-3 text-left"
+            aria-pressed={repayOn}
+          >
+            <span
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 text-sm font-bold ${
+                repayOn ? 'border-save bg-save text-white' : 'border-muted'
+              }`}
+            >
+              {repayOn && '✓'}
+            </span>
+            <span className="flex-1">
+              <span className="block font-medium">Погасить перерасход из этого дохода</span>
+              <span className="block text-sm text-muted">Сейчас перерасход: {money(debt)}</span>
+            </span>
+          </button>
+          {repayOn && (
+            <div className="mt-2">
+              <Field label="Сколько погасить" error={errors.repay}>
+                <MoneyInput value={repayStr} onChange={setRepayStr} placeholder={amountToInput(autoRepay)} />
+              </Field>
+            </div>
+          )}
+        </div>
+      )}
       <Button variant="primary" block onClick={submit}>
         {income ? 'Сохранить' : 'Добавить'}
       </Button>

@@ -15,6 +15,7 @@ import { monthName, monthRange, toISO, today } from '../lib/dates';
 import { money, plural, sum } from '../lib/format';
 import { Page } from '../components/layout';
 import { DeviationsSheet } from '../components/DeviationsSheet';
+import { deviationLeft } from '../db/actions';
 
 export function Home() {
   const settings = useSettings();
@@ -51,8 +52,13 @@ export function Home() {
     jarOps.filter((o) => o.type === 'deposit' && !o.source && inRange(o.date, month)),
     (o) => o.amount,
   );
-  const free = incomeMonth - limitsMonth - depositsMonth;
-  const devTotal = sum(deviations, (d) => d.amount);
+  // Погашения перерасхода из доходов и «текущих денег» тоже расходуют свободные деньги месяца.
+  const repaidMonth = sum(
+    deviations.flatMap((d) => d.repayments ?? []).filter((r) => r.source !== 'jar' && inRange(r.date, month)),
+    (r) => r.amount,
+  );
+  const free = incomeMonth - limitsMonth - depositsMonth - repaidMonth;
+  const devTotal = sum(deviations, deviationLeft);
   const expiredCount = categories.filter((c) => categoryStats(c, expenses, settings.monthStartDay).expired).length;
 
   const incomeCount = incomes.filter((i) => inRange(i.date, month)).length;
@@ -96,7 +102,7 @@ export function Home() {
             hint={incomeCount ? `${incomeCount} ${plural(incomeCount, ['поступление', 'поступления', 'поступлений'])}` : 'добавить ›'}
             onClick={() => navigate('/income')}
           />
-          <Stat label="Свободно" value={money(free)} tone={free < 0 ? 'over' : undefined} hint="доходы − лимиты − взносы" />
+          <Stat label="Свободно" value={money(free)} tone={free < 0 ? 'over' : undefined} hint="доходы − лимиты − взносы − погашения" />
           <Stat label="Сэкономлено" value={money(saved)} hint="закрыто в этом месяце" tone="ok" />
           <Stat label="Всего в копилках" value={money(totalSaved)} tone="save" />
         </div>
@@ -108,7 +114,7 @@ export function Home() {
           onClick={() => setDevOpen(true)}
           className="animate-pop-in mt-3 flex min-h-12 w-full items-center justify-between rounded-2xl bg-over-soft px-4 py-2.5 text-left font-semibold text-over"
         >
-          <span>⚠️ Отклонения: {money(devTotal)}</span>
+          <span>⚠️ Перерасход: {money(devTotal)}</span>
           <span className="text-xl">›</span>
         </button>
       )}

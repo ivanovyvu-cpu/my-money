@@ -51,11 +51,13 @@ export function MoneyInput({
   onChange,
   autoFocus,
   large,
+  placeholder = '0',
 }: {
   value: string;
   onChange: (v: string) => void;
   autoFocus?: boolean;
   large?: boolean;
+  placeholder?: string;
 }) {
   return (
     <div className="relative">
@@ -63,7 +65,7 @@ export function MoneyInput({
         type="text"
         inputMode="decimal"
         autoComplete="off"
-        placeholder="0"
+        placeholder={placeholder}
         autoFocus={autoFocus}
         value={value}
         onChange={(e) => onChange(e.target.value.replace(/[^\d.,\s]/g, ''))}

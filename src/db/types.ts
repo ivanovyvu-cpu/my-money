@@ -10,7 +10,10 @@ export interface Category {
   limit: number;
   period: Period;
   currentPeriodStart: string;
-  /** Перерасход, перенесённый с прошлого периода: уменьшает лимит текущего периода. */
+  /**
+   * Поправка лимита текущего периода: положительная — перенесённый перерасход (уменьшает лимит),
+   * отрицательная — пополнение из копилки (увеличивает лимит).
+   */
   carryOver: number;
   order: number;
   archived: boolean;
@@ -37,6 +40,11 @@ export interface Jar {
 
 export type JarOperationType = 'deposit' | 'withdraw';
 
+/** Куда ушли деньги, снятые из копилки (чтобы при удалении операции всё откатить). */
+export type JarOperationLink =
+  | { kind: 'topup'; categoryId: string } // пополнили лимит статьи
+  | { kind: 'repay' }; // погасили перерасход
+
 export interface JarOperation {
   id: string;
   jarId: string;
@@ -45,6 +53,7 @@ export interface JarOperation {
   date: string;
   note: string;
   source?: string;
+  link?: JarOperationLink;
   createdAt: number;
 }
 
@@ -73,12 +82,26 @@ export interface ClosedPeriod {
   createdAt: number;
 }
 
+/** Погашение перерасхода (полное или частичное). */
+export interface Repayment {
+  id: string;
+  date: string;
+  amount: number;
+  /** jar — из копилки, income — из поступления, cash — из текущих денег. */
+  source: 'jar' | 'income' | 'cash';
+  jarId?: string;
+  jarOpId?: string;
+  incomeId?: string;
+}
+
+/** Перерасход (в коде исторически называется Deviation — «отклонение»). */
 export interface Deviation {
   id: string;
   categoryId: string;
   periodStart: string;
   periodEnd: string;
   amount: number;
+  repayments?: Repayment[];
   createdAt: number;
 }
 

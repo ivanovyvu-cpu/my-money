@@ -3,6 +3,8 @@ import type {
   AppSettings,
   Category,
   ClosedPeriod,
+  Deviation,
+  Repayment,
   Expense,
   Income,
   Jar,
@@ -178,8 +180,37 @@ export async function updateJarOperation(id: string, patch: Partial<JarOperation
   await db.jarOperations.update(id, patch);
 }
 
+/** Удаляет операцию копилки и откатывает то, что она сделала (пополнение статьи, погашение). */
 export async function deleteJarOperation(id: string) {
-  await db.jarOperations.delete(id);
+  await db.transaction('rw', [db.jarOperations, db.categories, db.deviations], async () => {
+    const op = await db.jarOperations.get(id);
+    if (!op) return;
+    if (op.link?.kind === 'topup') {
+      const cat = await db.categories.get(op.link.categoryId);
+      if (cat) await db.categories.update(cat.id, { carryOver: round2((cat.carryOver || 0) + op.amount) });
+    } else if (op.link?.kind === 'repay') {
+      await removeRepayments((r) => r.jarOpId === id);
+    }
+    await db.jarOperations.delete(id);
+  });
+}
+
+/** Снять из копилки и добавить к лимиту статьи в текущем периоде. */
+export async function topUpCategoryFromJar(data: { jarId: string; categoryId: string; amount: number; date: string; note: string }) {
+  await db.transaction('rw', [db.jarOperations, db.categories], async () => {
+    const cat = await db.categories.get(data.categoryId);
+    if (!cat) throw new Error('Статья не найдена');
+    await addJarOperation({
+      jarId: data.jarId,
+      type: 'withdraw',
+      amount: data.amount,
+      date: data.date,
+      note: data.note,
+      source: `На статью «${cat.name}»`,
+      link: { kind: 'topup', categoryId: cat.id },
+    });
+    await db.categories.update(cat.id, { carryOver: round2((cat.carryOver || 0) - data.amount) });
+  });
 }
 
 // ---------- Доходы ----------
@@ -192,14 +223,93 @@ export async function updateIncome(id: string, patch: Partial<Income>) {
   await db.incomes.update(id, patch);
 }
 
+/** Удаляет поступление и погашения перерасхода, сделанные из него. */
 export async function deleteIncome(id: string) {
-  await db.incomes.delete(id);
+  await db.transaction('rw', [db.incomes, db.deviations], async () => {
+    await removeRepayments((r) => r.incomeId === id);
+    await db.incomes.delete(id);
+  });
 }
 
-// ---------- Отклонения ----------
+export async function addIncomeAndRepay(data: Omit<Income, 'id' | 'createdAt'>, repay: number) {
+  await db.transaction('rw', [db.incomes, db.deviations, db.jarOperations], async () => {
+    const id = uid();
+    await db.incomes.add({ ...data, id, createdAt: Date.now() });
+    if (repay > 0) await repayDeviations(repay, { source: 'income', incomeId: id, date: data.date });
+  });
+}
+
+// ---------- Перерасход (Deviation) ----------
+
+/** Сколько ещё не погашено. */
+export function deviationLeft(d: Deviation): number {
+  return round2(d.amount - (d.repayments ?? []).reduce((a, r) => a + r.amount, 0));
+}
 
 export async function deleteDeviation(id: string) {
   await db.deviations.delete(id);
+}
+
+export type RepaySource =
+  | { source: 'jar'; jarId: string; date: string }
+  | { source: 'income'; incomeId: string; date: string }
+  | { source: 'cash'; date: string };
+
+/**
+ * Гасит перерасход на сумму amount: сначала самый старый (или только указанный в onlyId).
+ * Для копилки создаёт операцию снятия. Возвращает фактически погашенную сумму.
+ */
+export async function repayDeviations(amount: number, src: RepaySource, onlyId?: string): Promise<number> {
+  return db.transaction('rw', [db.deviations, db.jarOperations], async () => {
+    const open = (await db.deviations.toArray())
+      .filter((d) => deviationLeft(d) > 0 && (!onlyId || d.id === onlyId))
+      .sort((a, b) => a.periodEnd.localeCompare(b.periodEnd) || a.createdAt - b.createdAt);
+    const total = round2(open.reduce((a, d) => a + deviationLeft(d), 0));
+    const pay = round2(Math.min(amount, total));
+    if (pay <= 0) return 0;
+
+    let jarOpId: string | undefined;
+    if (src.source === 'jar') {
+      jarOpId = uid();
+      await db.jarOperations.add({
+        id: jarOpId,
+        jarId: src.jarId,
+        type: 'withdraw',
+        amount: pay,
+        date: src.date,
+        note: '',
+        source: 'Погашение перерасхода',
+        link: { kind: 'repay' },
+        createdAt: Date.now(),
+      });
+    }
+
+    let rest = pay;
+    for (const d of open) {
+      if (rest <= 0) break;
+      const part = round2(Math.min(rest, deviationLeft(d)));
+      const rep: Repayment = {
+        id: uid(),
+        date: src.date,
+        amount: part,
+        source: src.source,
+        jarId: src.source === 'jar' ? src.jarId : undefined,
+        jarOpId,
+        incomeId: src.source === 'income' ? src.incomeId : undefined,
+      };
+      await db.deviations.update(d.id, { repayments: [...(d.repayments ?? []), rep] });
+      rest = round2(rest - part);
+    }
+    return pay;
+  });
+}
+
+async function removeRepayments(match: (r: Repayment) => boolean) {
+  const all = await db.deviations.toArray();
+  for (const d of all) {
+    const reps = d.repayments ?? [];
+    if (reps.some(match)) await db.deviations.update(d.id, { repayments: reps.filter((r) => !match(r)) });
+  }
 }
 
 // ---------- Закрытие периода ----------
@@ -210,7 +320,7 @@ export type CloseChoice =
   | { kind: 'deviation' }
   | { kind: 'covered_from_jar'; jarId: string }
   | { kind: 'carried_over' }
-  /** Автоматически: излишки — в указанную копилку, перерасход — в отклонения. */
+  /** Автоматически: излишки — в указанную копилку, перерасход — в список перерасхода. */
   | { kind: 'auto'; surplusJarId?: string };
 
 export interface CloseResult {

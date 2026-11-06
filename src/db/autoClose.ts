@@ -3,7 +3,7 @@ import { closePeriod, getSettings, SURPLUS_JAR_NAME, type CloseResult } from './
 import { categoryStats } from '../lib/calc';
 
 // Автоматическое закрытие периодов, срок которых уже прошёл.
-// Излишки уходят в копилку «Излишки», перерасход — в отклонения.
+// Излишки уходят в копилку «Излишки», перерасход — в список перерасхода.
 
 let running: Promise<CloseResult[]> | null = null;
 
