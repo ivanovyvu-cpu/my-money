@@ -112,9 +112,15 @@ export function CategoryDetail({ id }: { id: string }) {
           <Button variant="spend" block onClick={() => setExpenseSheet({ open: true })}>
             + Добавить операцию
           </Button>
-          <Button variant={st.expired ? 'primary' : 'soft'} block onClick={() => setCloseQueue([cat.id])}>
-            {st.expired ? 'Закрыть текущий период' : 'Закрыть период досрочно'}
-          </Button>
+          {st.notStarted ? (
+            <p className="rounded-2xl bg-card-2 px-4 py-3 text-center text-sm text-muted">
+              ✓ Прошлый период закрыт. Новый начнётся {formatDate(st.range.start)}
+            </p>
+          ) : (
+            <Button variant={st.expired ? 'primary' : 'soft'} block onClick={() => setCloseQueue([cat.id])}>
+              {st.expired ? 'Закрыть текущий период' : 'Закрыть период досрочно'}
+            </Button>
+          )}
         </div>
 
         <h2 className="mb-2 mt-6 font-semibold">Операции периода</h2>
@@ -165,7 +171,10 @@ export function CategoryDetail({ id }: { id: string }) {
                       <span>
                         {money(p.spent)} из {money(p.limit)}
                       </span>
-                      <span>{RESOLUTION_LABEL[p.resolution]}</span>
+                      <span>
+                        {RESOLUTION_LABEL[p.resolution]}
+                        {p.auto ? ' · авто' : ''}
+                      </span>
                     </div>
                   </li>
                 ))}

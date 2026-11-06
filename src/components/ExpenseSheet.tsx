@@ -38,6 +38,7 @@ function ExpenseForm({ onDone, categoryId, expense }: { onDone: () => void; cate
   const [title, setTitle] = useState(expense?.title ?? '');
   const [date, setDate] = useState(expense?.date ?? today());
   const [errors, setErrors] = useState<{ amount?: string; cat?: string; date?: string }>({});
+  const selectedCat = categories.find((c) => c.id === catId);
 
   async function submit() {
     const a = parseAmount(amount);
@@ -79,6 +80,11 @@ function ExpenseForm({ onDone, categoryId, expense }: { onDone: () => void; cate
       <Field label="Дата" error={errors.date}>
         <DateInput value={date} max="2100-12-31" onChange={(e) => setDate(e.target.value)} />
       </Field>
+      {selectedCat && date && date < selectedCat.currentPeriodStart && (
+        <p className="-mt-2 mb-4 rounded-xl bg-warn/15 px-3 py-2 text-sm">
+          Эта дата относится к уже закрытому периоду статьи — трата сохранится в истории, но не изменит текущий остаток.
+        </p>
+      )}
       <Button variant="spend" block onClick={submit}>
         {expense ? 'Сохранить' : 'Добавить'}
       </Button>

@@ -3,7 +3,7 @@ import type { Category, Period } from '../db/types';
 import { PERIOD_LABELS } from '../db/types';
 import type { CategoryStats } from '../lib/calc';
 import { amountToInput, money, parseAmount } from '../lib/format';
-import { formatRange } from '../lib/dates';
+import { formatDate, formatRange } from '../lib/dates';
 import { Button, Field, MoneyInput, ProgressBar, Segmented, TextInput } from './ui/controls';
 import { EmojiPicker } from './ui/EmojiPicker';
 
@@ -46,6 +46,9 @@ export function CategoryTile({ cat, st, onClick }: { cat: Category; st: Category
         </span>
         {cat.carryOver > 0 && <span>перенос −{money(cat.carryOver)}</span>}
       </div>
+      {st.notStarted && (
+        <div className="mt-3 rounded-xl bg-card-2 px-3 py-2 text-sm text-muted">✓ Период закрыт · новый с {formatDate(st.range.start)}</div>
+      )}
       {st.expired && (
         <div className="mt-3 rounded-xl bg-warn/15 px-3 py-2 text-sm font-medium">⏰ Период завершён — закрыть?</div>
       )}

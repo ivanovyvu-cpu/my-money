@@ -4,6 +4,9 @@ import { useSettings } from './hooks/useData';
 import { BottomNav, Fab } from './components/layout';
 import { ExpenseSheet } from './components/ExpenseSheet';
 import { FeedbackProvider } from './components/ui/feedback';
+import { AutoCloseSummary } from './components/AutoCloseSummary';
+import { autoCloseExpired } from './db/autoClose';
+import type { CloseResult } from './db/actions';
 import { Home } from './screens/Home';
 import { Spend } from './screens/Spend';
 import { CategoryDetail } from './screens/CategoryDetail';
@@ -40,6 +43,27 @@ function Screen({ route }: { route: Route }) {
   }
 }
 
+/** При запуске и при возвращении в приложение закрывает истёкшие периоды. */
+function useAutoClose() {
+  const [results, setResults] = useState<CloseResult[]>([]);
+  useEffect(() => {
+    const check = () => {
+      if (document.visibilityState !== 'visible') return;
+      autoCloseExpired()
+        .then((r) => {
+          if (!r.length) return;
+          // Один и тот же проход может вернуться дважды — не дублируем записи.
+          setResults((prev) => [...prev, ...r.filter((x) => !prev.some((p) => p.record.id === x.record.id))]);
+        })
+        .catch((e) => console.error('Автозакрытие периодов не удалось', e));
+    };
+    check();
+    document.addEventListener('visibilitychange', check);
+    return () => document.removeEventListener('visibilitychange', check);
+  }, []);
+  return { results, clear: () => setResults([]) };
+}
+
 /** Применяет выбранную тему и следит за системной, если выбрана «Системная». */
 function useApplyTheme() {
   const { theme } = useSettings();
@@ -65,6 +89,7 @@ export default function App() {
   const route = useRoute();
   const [quickAdd, setQuickAdd] = useState(false);
   useApplyTheme();
+  const autoClose = useAutoClose();
 
   const showFab = route.name === 'home' || route.name === 'spend';
 
@@ -74,6 +99,7 @@ export default function App() {
       {showFab && <Fab label="Добавить трату" onClick={() => setQuickAdd(true)} />}
       <BottomNav route={route} />
       <ExpenseSheet open={quickAdd} onClose={() => setQuickAdd(false)} />
+      <AutoCloseSummary results={autoClose.results} onClose={autoClose.clear} />
     </FeedbackProvider>
   );
 }

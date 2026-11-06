@@ -209,17 +209,32 @@ export type CloseChoice =
   | { kind: 'to_jar'; jarId: string }
   | { kind: 'deviation' }
   | { kind: 'covered_from_jar'; jarId: string }
-  | { kind: 'carried_over' };
+  | { kind: 'carried_over' }
+  /** Автоматически: излишки — в указанную копилку, перерасход — в отклонения. */
+  | { kind: 'auto'; surplusJarId?: string };
+
+export interface CloseResult {
+  record: ClosedPeriod;
+  categoryName: string;
+  categoryIcon: string;
+  jarName?: string;
+}
 
 /**
  * Закрывает текущий период статьи:
- * сохраняет запись в архив, обрабатывает излишки/перерасход и сдвигает начало периода.
- * Если период ещё не закончился (закрытие досрочно) — он заканчивается сегодня,
- * а новый начинается завтра.
+ * сохраняет запись в архив, обрабатывает излишки/перерасход и сдвигает начало периода
+ * на следующее «естественное» начало (неделя / месяц с дня из настроек / квартал / год).
+ * Досрочное закрытие подводит итог сразу; новый период всё равно начнётся в свой срок.
+ * С onlyIfExpired: true закрывает только уже закончившийся период (для автозакрытия),
+ * иначе ничего не делает и возвращает null.
  */
-export async function closePeriod(categoryId: string, choice: CloseChoice) {
+export async function closePeriod(
+  categoryId: string,
+  choice: CloseChoice,
+  opts: { onlyIfExpired?: boolean; auto?: boolean } = {},
+): Promise<CloseResult | null> {
   const { monthStartDay } = await getSettings();
-  await db.transaction(
+  return db.transaction(
     'rw',
     [db.categories, db.expenses, db.closedPeriods, db.deviations, db.jarOperations, db.jars],
     async () => {
@@ -227,13 +242,23 @@ export async function closePeriod(categoryId: string, choice: CloseChoice) {
       if (!cat) throw new Error('Статья не найдена');
       const expenses = await db.expenses.where('categoryId').equals(categoryId).toArray();
       const st = categoryStats(cat, expenses, monthStartDay);
+      if (opts.onlyIfExpired && !st.expired) return null;
+      if (st.notStarted) throw new Error('Этот период ещё не начался');
       const t = today();
-      const end = st.expired ? st.range.end : t;
+      const end = st.range.end;
       // Считаем только операции внутри закрываемого периода.
       const spent = round2(
         expenses.filter((e) => e.date >= st.range.start && e.date <= end).reduce((a, e) => a + e.amount, 0),
       );
       const diff = round2(st.effectiveLimit - spent);
+      if (choice.kind === 'auto') {
+        choice =
+          diff > 0 && choice.surplusJarId
+            ? { kind: 'to_jar', jarId: choice.surplusJarId }
+            : diff < 0
+              ? { kind: 'deviation' }
+              : { kind: 'none' };
+      }
 
       let resolution: Resolution = 'none';
       let jarId: string | undefined;
@@ -286,6 +311,7 @@ export async function closePeriod(categoryId: string, choice: CloseChoice) {
         difference: diff,
         resolution,
         jarId,
+        auto: opts.auto || undefined,
         createdAt: Date.now(),
       };
       await db.closedPeriods.add(record);
@@ -293,6 +319,8 @@ export async function closePeriod(categoryId: string, choice: CloseChoice) {
         currentPeriodStart: addDays(end, 1),
         carryOver,
       });
+      const jar = jarId ? await db.jars.get(jarId) : undefined;
+      return { record, categoryName: cat.name, categoryIcon: cat.icon, jarName: jar?.name };
     },
   );
 }

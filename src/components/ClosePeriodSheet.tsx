@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { closePeriod, SURPLUS_JAR_NAME, type CloseChoice } from '../db/actions';
 import { categoryStats, jarBalance } from '../lib/calc';
-import { formatRange, today } from '../lib/dates';
+import { addDays, formatDate, formatRange } from '../lib/dates';
 import { money } from '../lib/format';
 import { EXACT_PHRASES, OVERSPEND_PHRASES, SURPLUS_PHRASES, pickPhrase } from '../lib/phrases';
 import { useCategories, useExpenses, useJarOperations, useJars, useSettings } from '../hooks/useData';
@@ -55,13 +55,14 @@ function CloseStep({ categoryId, onDone }: { categoryId: string; onDone: () => v
   const [jarId, setJarId] = useState<string | null>(null);
   const [mode, setMode] = useState<'main' | 'cover'>('main');
   const [busy, setBusy] = useState(false);
+  const { toast } = useFeedback();
 
   // Фразу выбираем один раз на шаг, чтобы она не менялась при перерисовке.
   const seed = useMemo(() => Math.random(), []);
 
   if (!cat) return <p className="py-6 text-center text-muted">Загрузка…</p>;
   const st = categoryStats(cat, expenses, monthStartDay);
-  const end = st.expired ? st.range.end : today();
+  const end = st.range.end;
   const spent = expenses
     .filter((e) => e.categoryId === cat.id && e.date >= st.range.start && e.date <= end)
     .reduce((a, e) => a + e.amount, 0);
@@ -80,6 +81,8 @@ function CloseStep({ categoryId, onDone }: { categoryId: string; onDone: () => v
       await closePeriod(categoryId, choice);
       if (choice.kind === 'to_jar') launchConfetti(50);
       onDone();
+    } catch (e) {
+      toast((e as Error).message || 'Не удалось закрыть период');
     } finally {
       setBusy(false);
     }
@@ -93,7 +96,13 @@ function CloseStep({ categoryId, onDone }: { categoryId: string; onDone: () => v
         </div>
         <div className="text-sm text-muted">
           {formatRange({ start: st.range.start, end })}
-          {!st.expired && ' · закрытие досрочно, новый период начнётся завтра'}
+          {!st.expired && (
+            <>
+              <br />
+              Закрываем досрочно: новых трат по статье до конца периода не ждём. Следующий период начнётся{' '}
+              {formatDate(addDays(end, 1))}.
+            </>
+          )}
         </div>
         <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
           <div>

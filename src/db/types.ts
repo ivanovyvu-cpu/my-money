@@ -68,6 +68,8 @@ export interface ClosedPeriod {
   difference: number;
   resolution: Resolution;
   jarId?: string;
+  /** Период закрыт автоматически по окончании срока. */
+  auto?: boolean;
   createdAt: number;
 }
 

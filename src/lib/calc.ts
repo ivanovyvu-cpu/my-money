@@ -15,6 +15,8 @@ export interface CategoryStats {
   status: 'ok' | 'warn' | 'over';
   /** Период уже закончился, но не закрыт. */
   expired: boolean;
+  /** Период ещё не начался (прошлый закрыли досрочно). */
+  notStarted: boolean;
   daysLeft: number;
   /** Сколько можно тратить в день до конца периода (если остаток > 0). */
   perDay: number | null;
@@ -35,9 +37,10 @@ export function categoryStats(cat: Category, expenses: Expense[], monthStartDay:
   const status = remaining < 0 ? 'over' : ratio >= 0.8 && effectiveLimit > 0 ? 'warn' : 'ok';
   const t = today();
   const expired = t > range.end;
+  const notStarted = t < range.start;
   const daysLeft = expired ? 0 : daysBetweenInclusive(t < range.start ? range.start : t, range.end);
   const perDay = remaining > 0 && daysLeft > 0 ? round2(remaining / daysLeft) : null;
-  return { range, effectiveLimit, spent, remaining, ratio, status, expired, daysLeft, perDay };
+  return { range, effectiveLimit, spent, remaining, ratio, status, expired, notStarted, daysLeft, perDay };
 }
 
 export interface JarStats {
