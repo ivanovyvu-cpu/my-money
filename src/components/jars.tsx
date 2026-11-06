@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import type { Jar, JarOperation, JarOperationType } from '../db/types';
-import { addJarOperation, updateJarOperation } from '../db/actions';
+import { addJarOperation, deviationLeft, repayDeviations, topUpCategoryFromJar, updateJarOperation } from '../db/actions';
 import { db } from '../db/db';
 import { jarBalance, type JarStats } from '../lib/calc';
 import { formatDate, today } from '../lib/dates';
-import { amountToInput, money, parseAmount } from '../lib/format';
-import { useJarOperations, useJars } from '../hooks/useData';
+import { amountToInput, money, parseAmount, sum } from '../lib/format';
+import { useCategories, useDeviations, useJarOperations, useJars } from '../hooks/useData';
 import { Button, Chips, DateInput, Field, MoneyInput, ProgressBar, TextInput } from './ui/controls';
 import { EmojiPicker } from './ui/EmojiPicker';
 import { Sheet } from './ui/Sheet';
@@ -119,6 +119,9 @@ export function JarForm({
   );
 }
 
+const OUT = '__out';
+const DEBT = '__debt';
+
 /** Окно «Внести» / «Снять» (и редактирование операции копилки). */
 export function JarOpSheet({
   open,
@@ -150,6 +153,13 @@ function JarOpForm({ type, jarId, op, onDone }: { type: JarOperationType; jarId?
   const [selJar, setSelJar] = useState<string | null>(jarId ?? null);
   const [note, setNote] = useState(op?.note ?? '');
   const [errors, setErrors] = useState<{ amount?: string; jar?: string; note?: string }>({});
+  const categories = useCategories();
+  const debt = sum(useDeviations(), deviationLeft);
+  // Куда идут снятые деньги: OUT — просто снять, DEBT — погасить перерасход, иначе id статьи.
+  const [dest, setDest] = useState<string>(OUT);
+  const isNewWithdraw = type === 'withdraw' && !op;
+  // Операции, связанные со статьёй или перерасходом, нельзя менять по сумме — только удалить и создать заново.
+  const locked = !!op?.link;
 
   const balance = selJar ? jarBalance(selJar, ops) + (op && op.type === 'withdraw' ? op.amount : 0) : 0;
 
@@ -159,16 +169,31 @@ function JarOpForm({ type, jarId, op, onDone }: { type: JarOperationType; jarId?
     if (Number.isNaN(a) || a <= 0) e.amount = 'Введите сумму больше нуля';
     else if (type === 'withdraw' && a > balance) e.amount = `В копилке только ${money(balance)}`;
     if (!selJar) e.jar = 'Выберите копилку';
-    if (type === 'withdraw' && !note.trim()) e.note = 'Напишите, на что снимаете — так проще потом вспомнить';
+    if (isNewWithdraw && dest === DEBT && !Number.isNaN(a) && a > debt) e.amount = `Перерасхода всего ${money(debt)}`;
+    if (type === 'withdraw' && dest === OUT && !locked && !op?.source && !note.trim())
+      e.note = 'Напишите, на что снимаете — так проще потом вспомнить';
     setErrors(e);
     if (Object.keys(e).length || !selJar) return;
+
+    if (isNewWithdraw && dest !== OUT) {
+      if (dest === DEBT) {
+        await repayDeviations(a, { source: 'jar', jarId: selJar, date });
+        toast(a >= debt ? 'Перерасход погашен 🎉' : `Погашено ${money(a)}`);
+      } else {
+        await topUpCategoryFromJar({ jarId: selJar, categoryId: dest, amount: a, date, note: note.trim() });
+        const c = categories.find((x) => x.id === dest);
+        toast(`Лимит «${c?.name}» увеличен на ${money(a)}`);
+      }
+      onDone();
+      return;
+    }
 
     const jar = await db.jars.get(selJar);
     const allOps = await db.jarOperations.where('jarId').equals(selJar).toArray();
     const before = jarBalance(selJar, allOps);
 
     if (op) {
-      await updateJarOperation(op.id, { amount: a, date, jarId: selJar, note: note.trim() });
+      await updateJarOperation(op.id, locked ? { date, note: note.trim() } : { amount: a, date, jarId: selJar, note: note.trim() });
       toast('Операция сохранена');
     } else {
       await addJarOperation({ jarId: selJar, type, amount: a, date, note: note.trim() });
@@ -186,18 +211,52 @@ function JarOpForm({ type, jarId, op, onDone }: { type: JarOperationType; jarId?
   return (
     <div>
       <Field label="Сумма" error={errors.amount}>
-        <MoneyInput value={amount} onChange={setAmount} autoFocus={!op} large />
+        {locked ? (
+          <div className="flex h-16 items-center rounded-2xl bg-card-2 px-4 text-3xl font-semibold">{money(op!.amount)}</div>
+        ) : (
+          <MoneyInput value={amount} onChange={setAmount} autoFocus={!op} large />
+        )}
       </Field>
-      <div className="mb-4">
-        <span className="mb-1.5 block text-sm font-medium text-muted">Копилка</span>
+      {locked && (
+        <p className="-mt-2 mb-4 text-xs text-muted">
+          {op!.source}. Сумму и копилку такой операции изменить нельзя — удалите её и создайте заново.
+        </p>
+      )}
+      <div className="mb-4" hidden={locked}>
+        <span className="mb-1.5 block text-sm font-medium text-muted">{type === 'withdraw' ? 'Из какой копилки' : 'Копилка'}</span>
         <Chips accent="save" items={jars.map((j) => ({ id: j.id, label: j.name, icon: j.icon }))} value={selJar} onChange={setSelJar} />
         {errors.jar && <span className="mt-1 block text-sm text-over">{errors.jar}</span>}
         {type === 'withdraw' && selJar && <span className="mt-1 block text-sm text-muted">Доступно: {money(balance)}</span>}
       </div>
+      {isNewWithdraw && (
+        <div className="mb-4">
+          <span className="mb-1.5 block text-sm font-medium text-muted">Куда</span>
+          <Chips
+            accent="save"
+            items={[
+              { id: OUT, label: 'Просто снять', icon: '💸' },
+              ...(debt > 0 ? [{ id: DEBT, label: `Перерасход · ${money(debt)}`, icon: '⚠️' }] : []),
+              ...categories.map((c) => ({ id: c.id, label: c.name, icon: c.icon })),
+            ]}
+            value={dest}
+            onChange={setDest}
+          />
+          <p className="mt-2 text-xs text-muted">
+            {dest === OUT
+              ? 'Деньги просто уйдут из копилки.'
+              : dest === DEBT
+                ? 'Сумма погасит перерасход — сначала самый старый.'
+                : 'Лимит статьи в текущем периоде увеличится на эту сумму.'}
+          </p>
+        </div>
+      )}
       <Field label="Дата">
         <DateInput value={date} onChange={(e) => setDate(e.target.value)} />
       </Field>
-      <Field label={type === 'withdraw' ? 'Комментарий' : 'Комментарий (необязательно)'} error={errors.note}>
+      <Field
+        label={type === 'withdraw' && dest === OUT && !op?.source ? 'Комментарий' : 'Комментарий (необязательно)'}
+        error={errors.note}
+      >
         <TextInput value={note} onChange={(e) => setNote(e.target.value)} maxLength={80} placeholder={type === 'withdraw' ? 'На что снимаете' : ''} />
       </Field>
       <Button variant="save" block onClick={submit}>

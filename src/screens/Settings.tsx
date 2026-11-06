@@ -22,7 +22,7 @@ const LABELS: Record<string, string> = {
   jarOperations: 'операций в копилках',
   incomes: 'поступлений',
   closedPeriods: 'закрытых периодов',
-  deviations: 'отклонений',
+  deviations: 'записей о перерасходе',
 };
 
 export function Settings() {

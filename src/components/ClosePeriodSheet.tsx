@@ -159,7 +159,7 @@ function CloseStep({ categoryId, onDone }: { categoryId: string; onDone: () => v
           </p>
           <div className="flex flex-col gap-2">
             <Button variant="soft" block disabled={busy} onClick={() => finish({ kind: 'deviation' })}>
-              📝 Записать в отклонения
+              📝 Записать в перерасход
             </Button>
             <Button variant="soft" block disabled={busy || jars.length === 0} onClick={() => setMode('cover')}>
               🫙 Покрыть из копилки

@@ -45,6 +45,7 @@ export function CategoryTile({ cat, st, onClick }: { cat: Category; st: Category
           {PERIOD_LABELS[cat.period]} · {formatRange(st.range)}
         </span>
         {cat.carryOver > 0 && <span>перенос −{money(cat.carryOver)}</span>}
+        {cat.carryOver < 0 && <span>из копилки +{money(-cat.carryOver)}</span>}
       </div>
       {st.notStarted && (
         <div className="mt-3 rounded-xl bg-card-2 px-3 py-2 text-sm text-muted">✓ Период закрыт · новый с {formatDate(st.range.start)}</div>

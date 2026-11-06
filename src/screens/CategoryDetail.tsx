@@ -17,7 +17,7 @@ import { ClosePeriodSheet } from '../components/ClosePeriodSheet';
 
 const RESOLUTION_LABEL = {
   to_jar: 'в копилку',
-  deviation: 'в отклонения',
+  deviation: 'в перерасход',
   covered_from_jar: 'покрыто из копилки',
   carried_over: 'перенесено',
   none: '',
@@ -96,6 +96,11 @@ export function CategoryDetail({ id }: { id: string }) {
               {cat.carryOver > 0 && (
                 <div className="text-xs text-muted">
                   {money(cat.limit)} − перенос {money(cat.carryOver)}
+                </div>
+              )}
+              {cat.carryOver < 0 && (
+                <div className="text-xs text-muted">
+                  {money(cat.limit)} + из копилки {money(-cat.carryOver)}
                 </div>
               )}
             </div>
@@ -241,7 +246,7 @@ export function CategoryDetail({ id }: { id: string }) {
                   if (
                     await confirm({
                       title: 'Удалить статью навсегда?',
-                      message: 'Будут удалены все операции, история периодов и отклонения этой статьи. Отменить нельзя.',
+                      message: 'Будут удалены все операции, история периодов и перерасход этой статьи. Отменить нельзя.',
                       confirmText: 'Удалить навсегда',
                       danger: true,
                     })

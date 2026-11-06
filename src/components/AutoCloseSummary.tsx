@@ -38,7 +38,7 @@ export function AutoCloseSummary({ results, onClose }: { results: CloseResult[];
                 {r.resolution === 'to_jar'
                   ? `в копилку «${jarName ?? 'Излишки'}»`
                   : r.resolution === 'deviation'
-                    ? 'в отклонения'
+                    ? 'в перерасход'
                     : r.difference === 0
                       ? 'ровно в лимит'
                       : 'без изменений'}
@@ -49,7 +49,7 @@ export function AutoCloseSummary({ results, onClose }: { results: CloseResult[];
       </ul>
       {over > 0 && (
         <p className="mb-4 text-sm text-muted">
-          Перерасход {money(over)} записан в отклонения — его видно на главном экране. Ничего страшного, просто учтём в
+          Перерасход {money(over)} записан в список — его видно на главном экране, там же его можно погасить. Ничего страшного, просто учтём в
           следующих тратах.
         </p>
       )}
