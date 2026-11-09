@@ -21,8 +21,8 @@ export function QuickTemplatesSection() {
   return (
     <>
       <p className="mb-3 text-sm text-muted">
-        Кнопки появляются вверху окна «+». С суммой — трата добавляется одним касанием. Без суммы — заполнено всё, кроме
-        суммы.
+        Кнопки живут в плашке «⚡ Быстрые» на главном экране. С суммой — трата добавляется одним касанием. Без суммы —
+        заполнено всё, кроме суммы. Чем чаще вы тратите на что-то, тем крупнее кнопка.
       </p>
       {templates.length > 0 && (
         <ul className="mb-3 flex flex-col gap-2">
@@ -93,7 +93,7 @@ export function QuickTemplatesSection() {
   );
 }
 
-function TemplateForm({ template, onDone }: { template: QuickTemplate | null; onDone: () => void }) {
+export function TemplateForm({ template, onDone }: { template: QuickTemplate | null; onDone: () => void }) {
   const categories = useCategories();
   const [title, setTitle] = useState(template?.title ?? '');
   const [catId, setCatId] = useState<string | null>(template?.categoryId ?? null);

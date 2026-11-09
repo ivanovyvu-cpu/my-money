@@ -11,6 +11,21 @@ export interface Suggestion {
 
 const norm = (s: string) => s.trim().toLowerCase();
 
+/** Ключ «статья + название» для сравнения быстрых кнопок с тратами. */
+export const quickKey = (t: { categoryId: string; title: string }) => `${t.categoryId}|${norm(t.title)}`;
+
+/** Сколько раз за последние `days` дней встречалась каждая пара «статья + название». */
+export function usageCounts(expenses: Expense[], days = 90): Map<string, number> {
+  const since = addDays(today(), -days);
+  const out = new Map<string, number>();
+  for (const e of expenses) {
+    if (e.planned || e.date < since || !e.title.trim()) continue;
+    const k = quickKey(e);
+    out.set(k, (out.get(k) ?? 0) + 1);
+  }
+  return out;
+}
+
 /**
  * Предложения быстрых кнопок по истории: траты с одинаковым названием в одной статье,
  * которые встречались 3+ раза за последние 4 месяца. Уже сохранённые кнопки не предлагаются.

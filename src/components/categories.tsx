@@ -15,7 +15,18 @@ export const PERIOD_OPTIONS: Array<{ value: Period; label: string }> = [
 ];
 
 /** Плашка статьи расходов в списке. */
-export function CategoryTile({ cat, st, onClick }: { cat: Category; st: CategoryStats; onClick: () => void }) {
+export function CategoryTile({
+  cat,
+  st,
+  tint,
+  onClick,
+}: {
+  cat: Category;
+  st: CategoryStats;
+  /** Подложка значка в цвет статьи. */
+  tint?: string;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
@@ -23,7 +34,12 @@ export function CategoryTile({ cat, st, onClick }: { cat: Category; st: Category
       className="animate-pop-in block w-full rounded-[16px] bg-card p-4 text-left shadow-soft transition-transform duration-150 active:scale-[0.99]"
     >
       <div className="flex items-start gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-spend-soft text-2xl">{cat.icon}</span>
+        <span
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-spend-soft text-2xl"
+          style={tint ? { background: tint } : undefined}
+        >
+          {cat.icon}
+        </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
             <span className="truncate font-semibold">{cat.name}</span>

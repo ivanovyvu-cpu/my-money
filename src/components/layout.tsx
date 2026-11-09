@@ -40,7 +40,8 @@ export function ScreenHeader({
 }
 
 const NAV: Array<{ path: string; label: string; icon: string; match: Route['name'][] }> = [
-  { path: '/', label: 'Главная', icon: '🏠', match: ['home', 'spend', 'category', 'save', 'jar'] },
+  { path: '/', label: 'Главная', icon: '🏠', match: ['home', 'save', 'jar'] },
+  { path: '/spend', label: 'Траты', icon: '👛', match: ['spend', 'category'] },
   { path: '/income', label: 'Доходы', icon: '💵', match: ['income'] },
   { path: '/analytics', label: 'Аналитика', icon: '📊', match: ['analytics'] },
   { path: '/settings', label: 'Настройки', icon: '⚙️', match: ['settings'] },
@@ -56,7 +57,7 @@ export function BottomNav({ route }: { route: Route }) {
             <button
               key={n.path}
               type="button"
-              onClick={() => (active && n.path === '/' && route.name !== 'home' ? navigate('/') : navigate(n.path))}
+              onClick={() => navigate(n.path)}
               className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors ${
                 active ? 'text-text' : 'text-muted'
               }`}

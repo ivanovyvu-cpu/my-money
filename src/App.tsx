@@ -91,7 +91,8 @@ export default function App() {
   useApplyTheme();
   const autoClose = useAutoClose();
 
-  const showFab = route.name === 'home' || route.name === 'spend';
+  // На главной для трат теперь свои плашки, «+» остаётся во вкладке «Траты».
+  const showFab = route.name === 'spend';
 
   return (
     <FeedbackProvider>

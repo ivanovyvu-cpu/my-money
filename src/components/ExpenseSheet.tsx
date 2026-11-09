@@ -1,11 +1,9 @@
 import { useState } from 'react';
-import type { Expense, QuickTemplate } from '../db/types';
-import { addExpense, deleteExpense, updateExpense } from '../db/actions';
-import { useAllExpenses, useCategories, useQuickTemplates } from '../hooks/useData';
-import { navigate } from '../hooks/useRoute';
+import type { Expense } from '../db/types';
+import { addExpense, updateExpense } from '../db/actions';
+import { useCategories } from '../hooks/useData';
 import { formatDate, today } from '../lib/dates';
 import { amountToInput, money, parseAmount } from '../lib/format';
-import { suggestTemplates } from '../lib/suggest';
 import { Sheet } from './ui/Sheet';
 import { Button, Chips, DateInput, Field, MoneyInput, Segmented, TextInput } from './ui/controls';
 import { useFeedback } from './ui/feedback';
@@ -14,7 +12,8 @@ type Mode = 'actual' | 'planned';
 
 /**
  * Окно добавления / редактирования траты.
- * Сверху — быстрые кнопки, дальше поля для быстрого ввода: сумма → статья → название → «Добавить».
+ * Поля для быстрого ввода: сумма → статья → название → «Добавить».
+ * `preset` — заполнить статью и название заранее (быстрая кнопка без суммы).
  */
 export function ExpenseSheet({
   open,
@@ -22,6 +21,7 @@ export function ExpenseSheet({
   categoryId,
   expense,
   mode,
+  preset,
 }: {
   open: boolean;
   onClose: () => void;
@@ -29,12 +29,20 @@ export function ExpenseSheet({
   expense?: Expense | null;
   /** С чего начинать новую операцию: фактическая трата или запланированная. */
   mode?: Mode;
+  preset?: { title: string; categoryId: string } | null;
 }) {
   const title = expense ? (expense.planned ? 'Изменить план' : 'Изменить операцию') : mode === 'planned' ? 'Запланировать трату' : 'Новая трата';
   return (
     <Sheet open={open} onClose={onClose} title={title}>
       {open && (
-        <ExpenseForm key={expense?.id ?? `new-${mode}`} onDone={onClose} categoryId={categoryId} expense={expense} initialMode={mode} />
+        <ExpenseForm
+          key={expense?.id ?? `new-${mode}-${preset?.title ?? ''}`}
+          onDone={onClose}
+          categoryId={preset?.categoryId ?? categoryId}
+          presetTitle={preset?.title}
+          expense={expense}
+          initialMode={mode}
+        />
       )}
     </Sheet>
   );
@@ -47,9 +55,11 @@ function ExpenseForm({
   categoryId,
   expense,
   initialMode = 'actual',
+  presetTitle,
 }: {
   onDone: () => void;
   categoryId?: string;
+  presetTitle?: string;
   expense?: Expense | null;
   initialMode?: Mode;
 }) {
@@ -57,7 +67,7 @@ function ExpenseForm({
   const { toast } = useFeedback();
   const [amount, setAmount] = useState(expense ? amountToInput(expense.amount) : '');
   const [catId, setCatId] = useState<string | null>(expense?.categoryId ?? categoryId ?? null);
-  const [title, setTitle] = useState(expense?.title ?? '');
+  const [title, setTitle] = useState(expense?.title ?? presetTitle ?? '');
   const [date, setDate] = useState(expense?.date ?? today());
   const [mode, setMode] = useState<Mode>(expense ? (expense.planned ? 'planned' : 'actual') : initialMode);
   // Пока пользователь сам не переключал режим, будущая дата автоматически делает трату плановой.
@@ -90,33 +100,9 @@ function ExpenseForm({
     onDone();
   }
 
-  /** Нажатие на быструю кнопку: с суммой — сразу добавляем, без суммы — заполняем всё, кроме суммы. */
-  async function useQuick(t: { title: string; categoryId: string; amount?: number }) {
-    if (t.amount) {
-      const id = await addExpense({ categoryId: t.categoryId, title: t.title, amount: t.amount, date: today() });
-      toast(`${t.title}: ${money(t.amount)}`, { label: 'Отменить', onClick: () => deleteExpense(id) });
-      onDone();
-      return;
-    }
-    setCatId(t.categoryId);
-    setTitle(t.title);
-    setDate(today());
-    setMode('actual');
-    document.getElementById(AMOUNT_ID)?.focus();
-  }
 
   return (
     <div>
-      {!expense && mode === 'actual' && (
-        <QuickRow
-          preferCategory={categoryId}
-          onPick={useQuick}
-          onSettings={() => {
-            onDone();
-            navigate('/settings');
-          }}
-        />
-      )}
       <div className="mb-4">
         <Segmented
           options={[
@@ -158,62 +144,6 @@ function ExpenseForm({
       <Button variant="spend" block onClick={submit}>
         {expense ? 'Сохранить' : mode === 'planned' ? 'Запланировать' : 'Добавить'}
       </Button>
-    </div>
-  );
-}
-
-/** Ряд быстрых кнопок: сохранённые пользователем + предложения по частым тратам. */
-function QuickRow({
-  preferCategory,
-  onPick,
-  onSettings,
-}: {
-  preferCategory?: string;
-  onPick: (t: { title: string; categoryId: string; amount?: number }) => void;
-  onSettings: () => void;
-}) {
-  const templates = useQuickTemplates();
-  const expenses = useAllExpenses();
-  const categories = useCategories();
-  const icon = (id: string) => categories.find((c) => c.id === id)?.icon ?? '•';
-  const alive = (t: { categoryId: string }) => categories.some((c) => c.id === t.categoryId);
-
-  const own = templates
-    .filter(alive)
-    .sort((a, b) => Number(b.categoryId === preferCategory) - Number(a.categoryId === preferCategory));
-  const suggestions = suggestTemplates(expenses, templates).filter(alive);
-  if (own.length === 0 && suggestions.length === 0) return null;
-
-  const chip = (t: Pick<QuickTemplate, 'title' | 'categoryId' | 'amount'>, key: string, suggested: boolean) => (
-    <button
-      key={key}
-      type="button"
-      onClick={() => onPick(t)}
-      className={`flex min-h-11 shrink-0 items-center gap-1.5 rounded-2xl border px-3 text-sm font-medium transition-transform duration-150 active:scale-95 ${
-        suggested ? 'border-dashed border-line bg-card' : 'border-spend/40 bg-spend-soft'
-      }`}
-    >
-      <span>{icon(t.categoryId)}</span>
-      <span className="max-w-[9rem] truncate">{t.title}</span>
-      <span className="text-muted">{t.amount ? `· ${money(t.amount)}` : '· ₽?'}</span>
-    </button>
-  );
-
-  return (
-    <div className="mb-4">
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-sm font-medium text-muted">Быстрые траты</span>
-        <button type="button" className="min-h-8 text-sm text-muted underline" onClick={onSettings}>
-          настроить
-        </button>
-      </div>
-      <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
-        {own.map((t) => chip(t, t.id, false))}
-        {suggestions.map((s) => chip(s, `s-${s.categoryId}-${s.title}`, true))}
-      </div>
-      {suggestions.length > 0 && (
-        <p className="mt-1 text-xs text-muted">Пунктиром — предложения по вашим частым тратам. Закрепить можно в настройках.</p>
-      )}
     </div>
   );
 }

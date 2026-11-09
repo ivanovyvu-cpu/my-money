@@ -19,6 +19,8 @@ import { DeviationsSheet } from '../components/DeviationsSheet';
 import { deviationLeft, updateSettings } from '../db/actions';
 import { Sheet } from '../components/ui/Sheet';
 import { PlannedSheet } from '../components/PlannedList';
+import { ExpenseSheet } from '../components/ExpenseSheet';
+import { QuickCloud } from '../components/QuickCloud';
 
 export function Home() {
   const settings = useSettings();
@@ -33,6 +35,9 @@ export function Home() {
   const [rangeOpen, setRangeOpen] = useState(false);
   const [plannedOpen, setPlannedOpen] = useState(false);
   const planned = usePlannedExpenses();
+  const [addOpen, setAddOpen] = useState(false);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [preset, setPreset] = useState<{ title: string; categoryId: string } | null>(null);
 
   // Выбранный период сводки (месяц / 3 / 6 месяцев / год). Дальше «month» — это весь выбранный диапазон.
   const rangeKind = settings.homeRange ?? 'month';
@@ -174,21 +179,43 @@ export function Home() {
 
       <div className="mt-3 flex flex-col gap-3">
         <BigTile
-          onClick={() => navigate('/spend')}
-          icon="👛"
-          title="Потратить"
-          subtitle={limitsMonth > 0 ? `осталось ${money(Math.max(0, leftNow))}` : 'статьи расходов'}
-          className="bg-spend shadow-[0_8px_24px_rgb(242_107_74/0.3)]"
-        />
-        <BigTile
           onClick={() => navigate('/save')}
           icon="🐷"
           title="Накопить"
           subtitle={`накоплено ${money(totalSaved)}`}
           className="bg-save shadow-[0_8px_24px_rgb(18_165_148/0.3)]"
         />
+        <div className="grid grid-cols-2 gap-3">
+          <HalfTile
+            onClick={() => {
+              setPreset(null);
+              setAddOpen(true);
+            }}
+            icon="＋"
+            title="Трата"
+            subtitle={limitsMonth > 0 ? `осталось ${money(Math.max(0, leftNow))}` : 'внести расход'}
+          />
+          <HalfTile onClick={() => setQuickOpen(true)} icon="⚡" title="Быстрые" subtitle="частые траты" />
+        </div>
       </div>
 
+      <ExpenseSheet
+        open={addOpen}
+        preset={preset}
+        onClose={() => {
+          setAddOpen(false);
+          setPreset(null);
+        }}
+      />
+      <QuickCloud
+        open={quickOpen}
+        onClose={() => setQuickOpen(false)}
+        onNeedAmount={(t) => {
+          setQuickOpen(false);
+          setPreset(t);
+          setAddOpen(true);
+        }}
+      />
       <DeviationsSheet open={devOpen} onClose={() => setDevOpen(false)} />
       <PlannedSheet open={plannedOpen} onClose={() => setPlannedOpen(false)} />
 
@@ -275,12 +302,29 @@ function BigTile({
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-[84px] w-full items-center gap-4 rounded-[20px] px-4 py-3 pr-20 text-left text-white transition-transform duration-200 active:scale-[0.98] ${className}`}
+      className={`flex min-h-[84px] w-full items-center gap-4 rounded-[20px] px-4 py-3 text-left text-white transition-transform duration-200 active:scale-[0.98] ${className}`}
     >
       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/20 text-3xl">{icon}</span>
       <span className="min-w-0 flex-1">
         <span className="block text-2xl font-bold">{title}</span>
         <span className="block truncate text-sm text-white/90">{subtitle}</span>
+      </span>
+    </button>
+  );
+}
+
+/** Половинная плашка «трат» на главном экране. */
+function HalfTile({ onClick, icon, title, subtitle }: { onClick: () => void; icon: string; title: string; subtitle: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-[112px] w-full flex-col justify-between rounded-[20px] bg-spend p-3.5 text-left text-white shadow-[0_8px_24px_rgb(242_107_74/0.3)] transition-transform duration-200 active:scale-[0.97]"
+    >
+      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20 text-2xl font-bold">{icon}</span>
+      <span className="min-w-0">
+        <span className="block text-xl font-bold leading-tight">{title}</span>
+        <span className="block truncate text-xs text-white/90">{subtitle}</span>
       </span>
     </button>
   );

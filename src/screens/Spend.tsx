@@ -4,6 +4,7 @@ import { navigate } from '../hooks/useRoute';
 import { useCategories, useExpenses, usePlannedExpenses, useSettings } from '../hooks/useData';
 import { categoryStats } from '../lib/calc';
 import { money, sum } from '../lib/format';
+import { categoryTint } from '../lib/colors';
 import { Page, ScreenHeader } from '../components/layout';
 import { AddTile, CategoryForm, CategoryTile } from '../components/categories';
 import { ClosePeriodSheet } from '../components/ClosePeriodSheet';
@@ -11,6 +12,7 @@ import { useFeedback } from '../components/ui/feedback';
 
 export function Spend() {
   const categories = useCategories();
+  const allCats = useCategories(true);
   const expenses = useExpenses();
   const planned = usePlannedExpenses();
   const { monthStartDay } = useSettings();
@@ -25,7 +27,7 @@ export function Spend() {
 
   return (
     <>
-      <ScreenHeader title="👛 Потратить" back="/" accent="spend" />
+      <ScreenHeader title="👛 Траты" accent="spend" />
       <Page>
         <p className="mb-3 text-sm text-muted">
           Остаток по всем статьям: <b className={totalLeft < 0 ? 'text-over' : 'text-text'}>{money(totalLeft)}</b>
@@ -44,7 +46,7 @@ export function Spend() {
 
         <div className="flex flex-col gap-3">
           {rows.map(({ cat, st }) => (
-            <CategoryTile key={cat.id} cat={cat} st={st} onClick={() => navigate(`/spend/${cat.id}`)} />
+            <CategoryTile key={cat.id} cat={cat} st={st} tint={categoryTint(cat.id, allCats, 22)} onClick={() => navigate(`/spend/${cat.id}`)} />
           ))}
           <AddTile
             label="Добавить статью расходов"
