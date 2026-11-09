@@ -47,6 +47,12 @@ export function CategoryTile({ cat, st, onClick }: { cat: Category; st: Category
         {cat.carryOver > 0 && <span>перенос −{money(cat.carryOver)}</span>}
         {cat.carryOver < 0 && <span>из копилки +{money(-cat.carryOver)}</span>}
       </div>
+      {st.plannedSum > 0 && (
+        <div className="mt-1 text-xs text-muted">
+          📌 в планах {money(st.plannedSum)} · после них{' '}
+          <span className={st.afterPlans < 0 ? 'font-semibold text-over' : ''}>{money(st.afterPlans)}</span>
+        </div>
+      )}
       {st.notStarted && (
         <div className="mt-3 rounded-xl bg-card-2 px-3 py-2 text-sm text-muted">✓ Период закрыт · новый с {formatDate(st.range.start)}</div>
       )}

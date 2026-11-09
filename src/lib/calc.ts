@@ -20,9 +20,21 @@ export interface CategoryStats {
   daysLeft: number;
   /** Сколько можно тратить в день до конца периода (если остаток > 0). */
   perDay: number | null;
+  /** Сумма запланированных трат до конца периода (включая просроченные). */
+  plannedSum: number;
+  /** Остаток после оплаты всех запланированных трат. */
+  afterPlans: number;
 }
 
-export function categoryStats(cat: Category, expenses: Expense[], monthStartDay: number): CategoryStats {
+/**
+ * expenses — фактические траты; planned — запланированные (необязательно).
+ */
+export function categoryStats(
+  cat: Category,
+  expenses: Expense[],
+  monthStartDay: number,
+  planned: Expense[] = [],
+): CategoryStats {
   // Период начинается с currentPeriodStart (он может быть позже «естественного» начала,
   // если прошлый период закрыли досрочно) и заканчивается на естественной границе.
   const natural = periodRange(cat.currentPeriodStart, cat.period, monthStartDay);
@@ -40,7 +52,12 @@ export function categoryStats(cat: Category, expenses: Expense[], monthStartDay:
   const notStarted = t < range.start;
   const daysLeft = expired ? 0 : daysBetweenInclusive(t < range.start ? range.start : t, range.end);
   const perDay = remaining > 0 && daysLeft > 0 ? round2(remaining / daysLeft) : null;
-  return { range, effectiveLimit, spent, remaining, ratio, status, expired, notStarted, daysLeft, perDay };
+  const plannedSum = sum(
+    planned.filter((e) => e.categoryId === cat.id && e.date <= range.end),
+    (e) => e.amount,
+  );
+  const afterPlans = round2(remaining - plannedSum);
+  return { range, effectiveLimit, spent, remaining, ratio, status, expired, notStarted, daysLeft, perDay, plannedSum, afterPlans };
 }
 
 export interface JarStats {

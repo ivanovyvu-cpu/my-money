@@ -52,16 +52,19 @@ export function MoneyInput({
   autoFocus,
   large,
   placeholder = '0',
+  id,
 }: {
   value: string;
   onChange: (v: string) => void;
   autoFocus?: boolean;
   large?: boolean;
   placeholder?: string;
+  id?: string;
 }) {
   return (
     <div className="relative">
       <input
+        id={id}
         type="text"
         inputMode="decimal"
         autoComplete="off"

@@ -174,9 +174,17 @@ export async function fillDemoData() {
     createdAt: Date.now(),
   });
 
-  await db.transaction('rw', [db.categories, db.expenses, db.jars, db.jarOperations, db.incomes, db.closedPeriods, db.deviations, db.settings], async () => {
+  // Пара запланированных трат: одна уже пора оплатить, другая в будущем.
+  const carId = categories.find((c) => c.name === 'Машина')!.id;
+  const kidsId = categories.find((c) => c.name === 'Дети')!.id;
+  expenses.push(
+    { id: uid(), categoryId: kidsId, title: 'Абонемент в бассейн', amount: 4500, date: t, planned: true, createdAt: Date.now() },
+    { id: uid(), categoryId: carId, title: 'Страховка ОСАГО', amount: 9000, date: addDays(t, 10), planned: true, createdAt: Date.now() },
+  );
+
+  await db.transaction('rw', [db.categories, db.expenses, db.jars, db.jarOperations, db.incomes, db.closedPeriods, db.deviations, db.settings, db.quickTemplates], async () => {
     // Всё в одной транзакции: при ошибке старые данные останутся нетронутыми.
-    for (const tb of [db.categories, db.expenses, db.jars, db.jarOperations, db.incomes, db.closedPeriods, db.deviations]) await tb.clear();
+    for (const tb of [db.categories, db.expenses, db.jars, db.jarOperations, db.incomes, db.closedPeriods, db.deviations, db.quickTemplates]) await tb.clear();
     await db.settings.put({ ...prev, key: 'app', seeded: true });
     await db.categories.bulkAdd(categories);
     await db.expenses.bulkAdd(expenses);

@@ -25,6 +25,18 @@ export interface Expense {
   title: string;
   amount: number;
   date: string;
+  /** Запланированная (будущая) трата: не входит в «потрачено», пока не отмечена оплаченной. */
+  planned?: boolean;
+  createdAt: number;
+}
+
+/** Быстрая кнопка траты. Без amount — при нажатии нужно ввести только сумму. */
+export interface QuickTemplate {
+  id: string;
+  title: string;
+  categoryId: string;
+  amount?: number;
+  order: number;
   createdAt: number;
 }
 

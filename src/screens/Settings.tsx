@@ -8,6 +8,7 @@ import { useCategories, useJars, useSettings } from '../hooks/useData';
 import { Page, ScreenHeader } from '../components/layout';
 import { Button, Segmented } from '../components/ui/controls';
 import { useFeedback } from '../components/ui/feedback';
+import { QuickTemplatesSection } from '../components/QuickTemplates';
 
 const THEMES: Array<{ value: Theme; label: string }> = [
   { value: 'light', label: 'Светлая' },
@@ -23,6 +24,7 @@ const LABELS: Record<string, string> = {
   incomes: 'поступлений',
   closedPeriods: 'закрытых периодов',
   deviations: 'записей о перерасходе',
+  quickTemplates: 'быстрых кнопок',
 };
 
 export function Settings() {
@@ -135,6 +137,10 @@ export function Settings() {
               onChange={(e) => e.target.files?.[0] && onImportFile(e.target.files[0])}
             />
           </div>
+        </Section>
+
+        <Section title="⚡ Быстрые траты">
+          <QuickTemplatesSection />
         </Section>
 
         <Section title="Тема">

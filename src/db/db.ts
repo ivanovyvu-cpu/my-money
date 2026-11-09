@@ -8,6 +8,7 @@ import type {
   Income,
   Jar,
   JarOperation,
+  QuickTemplate,
 } from './types';
 
 // Локальная база IndexedDB. Чтобы изменить структуру в будущем —
@@ -21,6 +22,7 @@ export const db = new Dexie('financial-analyst') as Dexie & {
   closedPeriods: EntityTable<ClosedPeriod, 'id'>;
   deviations: EntityTable<Deviation, 'id'>;
   settings: EntityTable<AppSettings, 'key'>;
+  quickTemplates: EntityTable<QuickTemplate, 'id'>;
 };
 
 db.version(1).stores({
@@ -34,6 +36,11 @@ db.version(1).stores({
   settings: 'key',
 });
 
+// Версия 2: быстрые кнопки трат. Старые данные сохраняются как есть.
+db.version(2).stores({
+  quickTemplates: 'id, order',
+});
+
 /** Все таблицы с данными пользователя (для экспорта/импорта/сброса). */
 export const DATA_TABLES = [
   'categories',
@@ -44,6 +51,7 @@ export const DATA_TABLES = [
   'closedPeriods',
   'deviations',
   'settings',
+  'quickTemplates',
 ] as const;
 
 export type DataTableName = (typeof DATA_TABLES)[number];

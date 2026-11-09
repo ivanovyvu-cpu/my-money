@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { addCategory } from '../db/actions';
 import { navigate } from '../hooks/useRoute';
-import { useCategories, useExpenses, useSettings } from '../hooks/useData';
+import { useCategories, useExpenses, usePlannedExpenses, useSettings } from '../hooks/useData';
 import { categoryStats } from '../lib/calc';
 import { money, sum } from '../lib/format';
 import { Page, ScreenHeader } from '../components/layout';
@@ -12,13 +12,14 @@ import { useFeedback } from '../components/ui/feedback';
 export function Spend() {
   const categories = useCategories();
   const expenses = useExpenses();
+  const planned = usePlannedExpenses();
   const { monthStartDay } = useSettings();
   const { toast } = useFeedback();
   const [adding, setAdding] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const [queue, setQueue] = useState<string[]>([]);
 
-  const rows = categories.map((c) => ({ cat: c, st: categoryStats(c, expenses, monthStartDay) }));
+  const rows = categories.map((c) => ({ cat: c, st: categoryStats(c, expenses, monthStartDay, planned) }));
   const expired = rows.filter((r) => r.st.expired).map((r) => r.cat.id);
   const totalLeft = sum(rows, (r) => r.st.remaining);
 

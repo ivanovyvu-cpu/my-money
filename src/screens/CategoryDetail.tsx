@@ -3,7 +3,8 @@ import type { Expense } from '../db/types';
 import { PERIOD_LABELS } from '../db/types';
 import { archiveCategory, deleteCategory, deleteExpense, updateCategory } from '../db/actions';
 import { goBack } from '../hooks/useRoute';
-import { useCategory, useClosedPeriods, useExpenses, useSettings } from '../hooks/useData';
+import { useCategory, useClosedPeriods, useExpenses, usePlannedExpenses, useSettings } from '../hooks/useData';
+import { PlannedList } from '../components/PlannedList';
 import { categoryStats } from '../lib/calc';
 import { formatDate, formatRange } from '../lib/dates';
 import { money, plural } from '../lib/format';
@@ -26,10 +27,13 @@ const RESOLUTION_LABEL = {
 export function CategoryDetail({ id }: { id: string }) {
   const cat = useCategory(id);
   const expenses = useExpenses();
+  const planned = usePlannedExpenses();
   const closed = useClosedPeriods();
   const { monthStartDay } = useSettings();
   const { confirm, toast } = useFeedback();
-  const [expenseSheet, setExpenseSheet] = useState<{ open: boolean; expense?: Expense | null }>({ open: false });
+  const [expenseSheet, setExpenseSheet] = useState<{ open: boolean; expense?: Expense | null; mode?: 'actual' | 'planned' }>({
+    open: false,
+  });
   const [editOpen, setEditOpen] = useState(false);
   const [closeQueue, setCloseQueue] = useState<string[]>([]);
   const [showArchive, setShowArchive] = useState(false);
@@ -45,7 +49,8 @@ export function CategoryDetail({ id }: { id: string }) {
       </>
     );
 
-  const st = categoryStats(cat, expenses, monthStartDay);
+  const st = categoryStats(cat, expenses, monthStartDay, planned);
+  const myPlanned = planned.filter((e) => e.categoryId === cat.id);
   const current = expenses
     .filter((e) => e.categoryId === cat.id && e.date >= cat.currentPeriodStart)
     .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
@@ -110,13 +115,24 @@ export function CategoryDetail({ id }: { id: string }) {
               В день можно тратить <b>{money(Math.floor(st.perDay))}</b> · ещё {st.daysLeft} {plural(st.daysLeft, ['день', 'дня', 'дней'])}
             </div>
           )}
+          {st.plannedSum > 0 && (
+            <div className="mt-2 rounded-xl bg-card-2 px-3 py-2 text-sm">
+              📌 В планах {money(st.plannedSum)} · после них останется{' '}
+              <b className={st.afterPlans < 0 ? 'text-over' : ''}>{money(st.afterPlans)}</b>
+            </div>
+          )}
           {st.expired && <div className="mt-3 rounded-xl bg-warn/15 px-3 py-2 text-sm font-medium">⏰ Период завершён — пора закрыть</div>}
         </section>
 
         <div className="mt-4 flex flex-col gap-2">
-          <Button variant="spend" block onClick={() => setExpenseSheet({ open: true })}>
-            + Добавить операцию
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="spend" className="flex-[3]" onClick={() => setExpenseSheet({ open: true, mode: 'actual' })}>
+              + Добавить операцию
+            </Button>
+            <Button variant="soft" className="flex-[2] px-3" onClick={() => setExpenseSheet({ open: true, mode: 'planned' })}>
+              📌 План
+            </Button>
+          </div>
           {st.notStarted ? (
             <p className="rounded-2xl bg-card-2 px-4 py-3 text-center text-sm text-muted">
               ✓ Прошлый период закрыт. Новый начнётся {formatDate(st.range.start)}
@@ -127,6 +143,13 @@ export function CategoryDetail({ id }: { id: string }) {
             </Button>
           )}
         </div>
+
+        {myPlanned.length > 0 && (
+          <>
+            <h2 className="mb-2 mt-6 font-semibold">Запланировано</h2>
+            <PlannedList categoryId={cat.id} />
+          </>
+        )}
 
         <h2 className="mb-2 mt-6 font-semibold">Операции периода</h2>
         {current.length === 0 && <EmptyState>Пока нет операций</EmptyState>}
@@ -192,6 +215,7 @@ export function CategoryDetail({ id }: { id: string }) {
       <ExpenseSheet
         open={expenseSheet.open}
         expense={expenseSheet.expense}
+        mode={expenseSheet.mode}
         categoryId={cat.id}
         onClose={() => setExpenseSheet({ open: false })}
       />

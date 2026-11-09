@@ -20,7 +20,7 @@ async function run(): Promise<CloseResult[]> {
   // закрываем по одному, пока все не станут актуальными (с ограничением на всякий случай).
   for (let guard = 0; guard < 500; guard++) {
     const categories = (await db.categories.toArray()).filter((c) => !c.archived);
-    const expenses = await db.expenses.toArray();
+    const expenses = (await db.expenses.toArray()).filter((e) => !e.planned);
     const target = categories.find((c) => categoryStats(c, expenses, monthStartDay).expired);
     if (!target) break;
     const jars = (await db.jars.toArray()).filter((j) => !j.archived);

@@ -136,8 +136,10 @@ export async function deleteCategory(id: string) {
 
 // ---------- Траты ----------
 
-export async function addExpense(data: Omit<Expense, 'id' | 'createdAt'>) {
-  await db.expenses.add({ ...data, id: uid(), createdAt: Date.now() });
+export async function addExpense(data: Omit<Expense, 'id' | 'createdAt'>): Promise<string> {
+  const id = uid();
+  await db.expenses.add({ ...data, id, createdAt: Date.now() });
+  return id;
 }
 
 export async function updateExpense(id: string, patch: Partial<Expense>) {
@@ -146,6 +148,26 @@ export async function updateExpense(id: string, patch: Partial<Expense>) {
 
 export async function deleteExpense(id: string) {
   await db.expenses.delete(id);
+}
+
+/** Отметить запланированную трату оплаченной (сегодняшним числом). */
+export async function markPlannedPaid(id: string) {
+  await db.expenses.update(id, { planned: false, date: today(), createdAt: Date.now() });
+}
+
+// ---------- Быстрые кнопки ----------
+
+export async function addQuickTemplate(data: { title: string; categoryId: string; amount?: number }) {
+  const last = await db.quickTemplates.orderBy('order').last();
+  await db.quickTemplates.add({ ...data, id: uid(), order: (last?.order ?? -1) + 1, createdAt: Date.now() });
+}
+
+export async function updateQuickTemplate(id: string, patch: { title: string; categoryId: string; amount?: number }) {
+  await db.quickTemplates.update(id, patch);
+}
+
+export async function deleteQuickTemplate(id: string) {
+  await db.quickTemplates.delete(id);
 }
 
 // ---------- Копилки ----------
@@ -350,7 +372,7 @@ export async function closePeriod(
     async () => {
       const cat = await db.categories.get(categoryId);
       if (!cat) throw new Error('Статья не найдена');
-      const expenses = await db.expenses.where('categoryId').equals(categoryId).toArray();
+      const expenses = (await db.expenses.where('categoryId').equals(categoryId).toArray()).filter((e) => !e.planned);
       const st = categoryStats(cat, expenses, monthStartDay);
       if (opts.onlyIfExpired && !st.expired) return null;
       if (st.notStarted) throw new Error('Этот период ещё не начался');

@@ -24,8 +24,28 @@ export function useCategory(id: string) {
   return useLiveQuery(async () => (await db.categories.get(id)) ?? null, [id]);
 }
 
+/** Фактические траты (без запланированных). */
 export function useExpenses() {
+  return useLiveQuery(async () => (await db.expenses.toArray()).filter((e) => !e.planned), []) ?? EMPTY;
+}
+
+/** Запланированные траты, по дате. */
+export function usePlannedExpenses() {
+  return (
+    useLiveQuery(
+      async () => (await db.expenses.toArray()).filter((e) => e.planned).sort((a, b) => a.date.localeCompare(b.date)),
+      [],
+    ) ?? EMPTY
+  );
+}
+
+/** Все траты, включая запланированные (для подсказок). */
+export function useAllExpenses() {
   return useLiveQuery(() => db.expenses.toArray(), []) ?? EMPTY;
+}
+
+export function useQuickTemplates() {
+  return useLiveQuery(() => db.quickTemplates.orderBy('order').toArray(), []) ?? EMPTY;
 }
 
 export function useJars(includeArchived = false) {

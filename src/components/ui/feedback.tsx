@@ -15,7 +15,12 @@ interface ConfirmOptions {
 
 interface FeedbackApi {
   confirm: (o: ConfirmOptions) => Promise<boolean>;
-  toast: (text: string) => void;
+  toast: (text: string, action?: ToastAction) => void;
+}
+
+interface ToastAction {
+  label: string;
+  onClick: () => void;
 }
 
 const Ctx = createContext<FeedbackApi | null>(null);
@@ -23,7 +28,7 @@ const Ctx = createContext<FeedbackApi | null>(null);
 export function FeedbackProvider({ children }: { children: ReactNode }) {
   const [dialog, setDialog] = useState<ConfirmOptions | null>(null);
   const resolver = useRef<((v: boolean) => void) | null>(null);
-  const [toasts, setToasts] = useState<Array<{ id: number; text: string }>>([]);
+  const [toasts, setToasts] = useState<Array<{ id: number; text: string; action?: ToastAction }>>([]);
 
   const confirm = useCallback((o: ConfirmOptions) => {
     setDialog(o);
@@ -38,10 +43,10 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     setDialog(null);
   }, []);
 
-  const toast = useCallback((text: string) => {
+  const toast = useCallback((text: string, action?: ToastAction) => {
     const id = Date.now() + Math.random();
-    setToasts((t) => [...t, { id, text }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2600);
+    setToasts((t) => [...t, { id, text, action }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), action ? 5000 : 2600);
   }, []);
 
   return (
@@ -61,8 +66,23 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
       {createPortal(
         <div className="pointer-events-none fixed inset-x-0 top-0 z-[70] flex flex-col items-center gap-2 px-4 pt-[calc(env(safe-area-inset-top)+8px)]">
           {toasts.map((t) => (
-            <div key={t.id} className="animate-pop-in mt-2 rounded-2xl bg-text px-4 py-3 text-sm font-medium text-bg shadow-soft">
-              {t.text}
+            <div
+              key={t.id}
+              className="animate-pop-in pointer-events-auto mt-2 flex items-center gap-3 rounded-2xl bg-text py-2 pl-4 pr-2 text-sm font-medium text-bg shadow-soft"
+            >
+              <span className="py-1">{t.text}</span>
+              {t.action && (
+                <button
+                  type="button"
+                  className="min-h-9 rounded-xl bg-bg/15 px-3 font-semibold"
+                  onClick={() => {
+                    t.action!.onClick();
+                    setToasts((all) => all.filter((x) => x.id !== t.id));
+                  }}
+                >
+                  {t.action.label}
+                </button>
+              )}
             </div>
           ))}
         </div>,

@@ -5,6 +5,7 @@ import {
   useClosedPeriods,
   useDeviations,
   useExpenses,
+  usePlannedExpenses,
   useIncomes,
   useJarOperations,
   useJars,
@@ -17,6 +18,7 @@ import { Page } from '../components/layout';
 import { DeviationsSheet } from '../components/DeviationsSheet';
 import { deviationLeft, updateSettings } from '../db/actions';
 import { Sheet } from '../components/ui/Sheet';
+import { PlannedSheet } from '../components/PlannedList';
 
 export function Home() {
   const settings = useSettings();
@@ -29,6 +31,8 @@ export function Home() {
   const deviations = useDeviations();
   const [devOpen, setDevOpen] = useState(false);
   const [rangeOpen, setRangeOpen] = useState(false);
+  const [plannedOpen, setPlannedOpen] = useState(false);
+  const planned = usePlannedExpenses();
 
   // Выбранный период сводки (месяц / 3 / 6 месяцев / год). Дальше «month» — это весь выбранный диапазон.
   const rangeKind = settings.homeRange ?? 'month';
@@ -66,6 +70,10 @@ export function Home() {
   );
   const free = incomeMonth - limitsMonth - depositsMonth - repaidMonth;
   const devTotal = sum(deviations, deviationLeft);
+  // Планы: сколько запланировано в выбранном периоде и сколько уже пора оплатить.
+  const todayStr = toISO(new Date());
+  const plannedInView = sum(planned.filter((e) => e.date <= month.end), (e) => e.amount);
+  const dueCount = planned.filter((e) => e.date <= todayStr).length;
   const expiredCount = categories.filter((c) => categoryStats(c, expenses, settings.monthStartDay).expired).length;
 
   const incomeCount = incomes.filter((i) => inRange(i.date, month)).length;
@@ -112,6 +120,11 @@ export function Home() {
             '—'
           )}
         </div>
+        {plannedInView > 0 && (
+          <button type="button" onClick={() => setPlannedOpen(true)} className="mt-1 block truncate text-left text-sm text-muted">
+            📌 Запланировано: <span className="text-text">{money(plannedInView)}</span> ›
+          </button>
+        )}
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Stat
             label={`Доходы ${view.short}`}
@@ -125,6 +138,17 @@ export function Home() {
           <Stat label="Всего в копилках" value={money(totalSaved)} tone="save" />
         </div>
       </section>
+
+      {dueCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setPlannedOpen(true)}
+          className="animate-pop-in mt-3 flex min-h-12 w-full items-center justify-between rounded-2xl bg-warn/15 px-4 py-2.5 text-left font-semibold"
+        >
+          <span>📌 Пора оплатить: {dueCount} {plural(dueCount, ['план', 'плана', 'планов'])}</span>
+          <span className="text-xl">›</span>
+        </button>
+      )}
 
       {devTotal > 0 && (
         <button
@@ -166,6 +190,7 @@ export function Home() {
       </div>
 
       <DeviationsSheet open={devOpen} onClose={() => setDevOpen(false)} />
+      <PlannedSheet open={plannedOpen} onClose={() => setPlannedOpen(false)} />
 
       <Sheet open={rangeOpen} onClose={() => setRangeOpen(false)} title="Период сводки">
         <div className="flex flex-col gap-2">
