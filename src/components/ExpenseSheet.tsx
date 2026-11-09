@@ -31,7 +31,15 @@ export function ExpenseSheet({
   mode?: Mode;
   preset?: { title: string; categoryId: string } | null;
 }) {
-  const title = expense ? (expense.planned ? 'Изменить план' : 'Изменить операцию') : mode === 'planned' ? 'Запланировать трату' : 'Новая трата';
+  const title = expense
+    ? expense.planned
+      ? 'Изменить план'
+      : 'Изменить операцию'
+    : preset
+      ? `⚡ ${preset.title}`
+      : mode === 'planned'
+        ? 'Запланировать трату'
+        : 'Новая трата';
   return (
     <Sheet open={open} onClose={onClose} title={title}>
       {open && (
@@ -74,6 +82,9 @@ function ExpenseForm({
   const [modeTouched, setModeTouched] = useState(!!expense);
   const [errors, setErrors] = useState<{ amount?: string; cat?: string; date?: string }>({});
   const selectedCat = categories.find((c) => c.id === catId);
+  // Форма из быстрой кнопки: статья и название уже известны, показываем минимум.
+  const compact = !!presetTitle && !expense;
+  const [details, setDetails] = useState(false);
 
   function onDateChange(v: string) {
     setDate(v);
@@ -87,6 +98,7 @@ function ExpenseForm({
     if (!catId) e.cat = 'Выберите статью';
     if (!date) e.date = 'Укажите дату';
     setErrors(e);
+    if (e.cat || e.date) setDetails(true);
     if (Object.keys(e).length || !catId) return;
     const cat = categories.find((c) => c.id === catId);
     const data = { categoryId: catId, amount: a, title: title.trim() || cat?.name || 'Трата', date, planned: mode === 'planned' };
@@ -101,24 +113,28 @@ function ExpenseForm({
   }
 
 
-  return (
-    <div>
-      <div className="mb-4">
-        <Segmented
-          options={[
-            { value: 'actual', label: '💸 Потрачено' },
-            { value: 'planned', label: '📌 Запланировано' },
-          ]}
-          value={mode}
-          onChange={(m) => {
-            setMode(m);
-            setModeTouched(true);
-          }}
-        />
-      </div>
-      <Field label="Сумма" error={errors.amount}>
-        <MoneyInput id={AMOUNT_ID} value={amount} onChange={setAmount} autoFocus={!expense} large />
-      </Field>
+  const modeSwitch = (
+    <div className="mb-4">
+      <Segmented
+        options={[
+          { value: 'actual', label: '💸 Потрачено' },
+          { value: 'planned', label: '📌 Запланировано' },
+        ]}
+        value={mode}
+        onChange={(m) => {
+          setMode(m);
+          setModeTouched(true);
+        }}
+      />
+    </div>
+  );
+  const amountField = (
+    <Field label={compact ? undefined : 'Сумма'} error={errors.amount}>
+      <MoneyInput id={AMOUNT_ID} value={amount} onChange={setAmount} autoFocus={!expense} large />
+    </Field>
+  );
+  const fields = (
+    <>
       <div className="mb-4">
         <span className="mb-1.5 block text-sm font-medium text-muted">Статья</span>
         <Chips items={categories.map((c) => ({ id: c.id, label: c.name, icon: c.icon }))} value={catId} onChange={setCatId} />
@@ -130,6 +146,10 @@ function ExpenseForm({
       <Field label={mode === 'planned' ? 'Когда планируется' : 'Дата'} error={errors.date}>
         <DateInput value={date} max="2100-12-31" onChange={(e) => onDateChange(e.target.value)} />
       </Field>
+    </>
+  );
+  const notes = (
+    <>
       {mode === 'planned' && (
         <p className="-mt-2 mb-4 rounded-xl bg-card-2 px-3 py-2 text-sm text-muted">
           План не уменьшает остаток, пока вы не отметите его оплаченным. В статье будет видно, сколько останется после всех
@@ -141,9 +161,52 @@ function ExpenseForm({
           Эта дата относится к уже закрытому периоду статьи — трата сохранится в истории, но не изменит текущий остаток.
         </p>
       )}
-      <Button variant="spend" block onClick={submit}>
-        {expense ? 'Сохранить' : mode === 'planned' ? 'Запланировать' : 'Добавить'}
-      </Button>
+    </>
+  );
+  const submitButton = (
+    <Button variant="spend" block onClick={submit}>
+      {expense ? 'Сохранить' : mode === 'planned' ? 'Запланировать' : 'Добавить'}
+    </Button>
+  );
+
+  // Быстрая кнопка без суммы: видна только сумма, остальное — под «Подробнее».
+  if (compact) {
+    const t = today();
+    return (
+      <div>
+        <p className="-mt-1 mb-3 truncate text-sm text-muted">
+          {selectedCat ? `${selectedCat.icon} ${selectedCat.name}` : 'Статья не выбрана'} ·{' '}
+          {mode === 'planned' ? `план на ${formatDate(date)}` : date === t ? 'сегодня' : formatDate(date)}
+        </p>
+        {amountField}
+        {submitButton}
+        <button
+          type="button"
+          onClick={() => setDetails(!details)}
+          aria-expanded={details}
+          className="mt-2 flex min-h-11 w-full items-center justify-center gap-1 text-sm font-medium text-muted"
+        >
+          Подробнее
+          <span className={`transition-transform duration-200 ${details ? 'rotate-180' : ''}`}>▾</span>
+        </button>
+        <div className={`expand ${details ? 'open' : ''}`} inert={!details}>
+          <div className="pt-2">
+            {modeSwitch}
+            {fields}
+            {notes}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {modeSwitch}
+      {amountField}
+      {fields}
+      {notes}
+      {submitButton}
     </div>
   );
 }

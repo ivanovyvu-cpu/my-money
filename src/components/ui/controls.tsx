@@ -28,10 +28,10 @@ export function Button({
   );
 }
 
-export function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
+export function Field({ label, error, children }: { label?: string; error?: string; children: ReactNode }) {
   return (
     <label className="mb-4 block">
-      <span className="mb-1.5 block text-sm font-medium text-muted">{label}</span>
+      {label && <span className="mb-1.5 block text-sm font-medium text-muted">{label}</span>}
       {children}
       {error && <span className="mt-1 block text-sm text-over">{error}</span>}
     </label>
