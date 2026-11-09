@@ -75,6 +75,15 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* Сама страница не прокручивается — прокручивается только область #scroller.
+   Так нижнее меню на iPhone никогда не «уезжает» при прокрутке и после клавиатуры. */
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;

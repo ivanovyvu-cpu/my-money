@@ -95,9 +95,16 @@ export default function App() {
 
   return (
     <FeedbackProvider>
-      <Screen route={route} />
-      {showFab && <Fab label="Добавить трату" onClick={() => setQuickAdd(true)} />}
-      <BottomNav route={route} />
+      {/* Каркас: прокручиваемая область + нижнее меню, без position: fixed */}
+      <div className="flex h-full flex-col">
+        <div className="relative min-h-0 flex-1">
+          <div id="scroller" className="absolute inset-0 overflow-y-auto overscroll-contain">
+            <Screen route={route} />
+          </div>
+          {showFab && <Fab label="Добавить трату" onClick={() => setQuickAdd(true)} />}
+        </div>
+        <BottomNav route={route} />
+      </div>
       <ExpenseSheet open={quickAdd} onClose={() => setQuickAdd(false)} />
       <AutoCloseSummary results={autoClose.results} onClose={autoClose.clear} />
     </FeedbackProvider>

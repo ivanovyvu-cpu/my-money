@@ -48,7 +48,7 @@ const NAV: Array<{ path: string; label: string; icon: string; match: Route['name
 
 export function BottomNav({ route }: { route: Route }) {
   return (
-    <nav className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-line bg-card/95 backdrop-blur">
+    <nav className="pb-safe relative z-40 shrink-0 border-t border-line bg-card">
       <div className="mx-auto flex max-w-[480px]">
         {NAV.map((n) => {
           const active = n.match.includes(route.name);
@@ -80,7 +80,7 @@ export function Fab({ onClick, label }: { onClick: () => void; label: string }) 
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="fixed bottom-[calc(76px+env(safe-area-inset-bottom))] right-[max(16px,calc(50%-224px))] z-40 flex h-16 w-16 items-center justify-center rounded-full bg-spend text-4xl font-light text-white shadow-[0_8px_24px_rgb(242_107_74/0.45)] transition-transform duration-150 active:scale-95"
+      className="absolute bottom-4 right-[max(16px,calc(50%-224px))] z-40 flex h-16 w-16 items-center justify-center rounded-full bg-spend text-4xl font-light text-white shadow-[0_8px_24px_rgb(242_107_74/0.45)] transition-transform duration-150 active:scale-95"
     >
       +
     </button>
@@ -88,5 +88,5 @@ export function Fab({ onClick, label }: { onClick: () => void; label: string }) 
 }
 
 export function Page({ children }: { children: ReactNode }) {
-  return <main className="mx-auto max-w-[480px] px-4 pb-32">{children}</main>;
+  return <main className="mx-auto max-w-[480px] px-4 pb-28">{children}</main>;
 }

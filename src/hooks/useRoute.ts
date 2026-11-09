@@ -62,7 +62,7 @@ export function useRoute(): Route {
     const on = () => {
       track(window.location.hash);
       setRoute(parseHash(window.location.hash));
-      window.scrollTo(0, 0);
+      document.getElementById('scroller')?.scrollTo(0, 0);
     };
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
